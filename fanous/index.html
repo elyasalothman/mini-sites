@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>فانوس — Fanous</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --night: #12182a;
+      --brass: #e0b050;
+      --brass-dim: #8a6a28;
+      --flame: #ffd080;
+      --glass: #2a3858;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--night); color: #f0d8a0; }
+    body {
+      font-family: Amiri, serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .vault {
+      position: fixed;
+      bottom: 10px;
+      inset-inline-start: 14px;
+      z-index: 20;
+      color: var(--brass);
+      text-decoration: none;
+      font-size: 0.85rem;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.5;
+    }
+    .vault:hover, .vault:focus-visible { opacity: 1; }
+    header {
+      padding: 1.4rem 1rem 0.4rem;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 7vw, 2.6rem);
+      font-weight: 700;
+      color: var(--brass);
+    }
+    header p {
+      margin: 0.25rem 0 0;
+      color: color-mix(in srgb, var(--brass) 70%, #fff);
+      font-size: 1.05rem;
+    }
+    .scene {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 0.5rem 1rem 1rem;
+    }
+    .phase {
+      font-size: clamp(2.4rem, 12vw, 4.2rem);
+      margin: 0 0 0.35rem;
+      min-height: 1.2em;
+      color: #f8e6b8;
+      letter-spacing: 0.06em;
+    }
+    .count {
+      font-size: 1.15rem;
+      color: var(--brass);
+      min-height: 1.4em;
+      letter-spacing: 0.12em;
+    }
+    .lantern-space {
+      width: min(280px, 78vw);
+      height: min(380px, 52dvh);
+      display: grid;
+      place-items: center;
+      margin: 0.4rem 0 0.8rem;
+    }
+    .lantern {
+      width: 168px;
+      transform-origin: 50% 8%;
+      transition: transform 0.4s ease, filter 0.4s ease, opacity 0.4s ease;
+      will-change: transform, filter, opacity;
+      cursor: pointer;
+    }
+    .lantern.inhale { transform: scale(1.08); filter: drop-shadow(0 0 28px rgba(255, 200, 80, 0.55)); }
+    .lantern.hold { transform: scale(1.06); filter: drop-shadow(0 0 22px rgba(255, 190, 70, 0.42)); }
+    .lantern.exhale { transform: scale(0.94); filter: drop-shadow(0 0 10px rgba(224, 176, 80, 0.18)); opacity: 0.82; }
+    .lantern.rest { transform: scale(0.98); filter: drop-shadow(0 0 14px rgba(224, 176, 80, 0.22)); opacity: 0.9; }
+    .chain {
+      width: 4px;
+      height: 36px;
+      margin: 0 auto;
+      background: linear-gradient(var(--brass), var(--brass-dim));
+      border-radius: 2px;
+    }
+    .cap {
+      width: 78px;
+      height: 22px;
+      margin: 0 auto -6px;
+      background: linear-gradient(180deg, #f0d090, var(--brass) 40%, #8a6020);
+      border-radius: 40% 40% 8% 8%;
+      box-shadow: inset 0 2px 0 rgba(255,255,255,0.35);
+    }
+    .dome {
+      width: 110px;
+      height: 28px;
+      margin: 0 auto;
+      background: radial-gradient(ellipse at 50% 20%, #f4d890, var(--brass) 50%, #6a4a18);
+      border-radius: 50% 50% 8% 8%;
+    }
+    .body {
+      width: 150px;
+      margin: -4px auto 0;
+      height: 168px;
+      background: linear-gradient(180deg, #3a4a70, var(--glass) 40%, #1a2438);
+      clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%);
+      position: relative;
+      border: 3px solid var(--brass);
+      border-top: none;
+      box-shadow: inset 0 0 24px rgba(255, 200, 90, 0.18);
+    }
+    .pane {
+      position: absolute;
+      inset: 10px 18px 14px;
+      background:
+        linear-gradient(90deg, transparent 48%, rgba(224,176,80,0.35) 49% 51%, transparent 52%),
+        linear-gradient(180deg, transparent 48%, rgba(224,176,80,0.28) 49% 51%, transparent 52%);
+      border: 1px solid rgba(224,176,80,0.35);
+    }
+    .flame {
+      position: absolute;
+      left: 50%;
+      bottom: 28px;
+      width: 22px;
+      height: 42px;
+      transform: translateX(-50%);
+      background: radial-gradient(ellipse at 50% 80%, #fff6d0 0%, #ffc050 38%, #e07020 70%, transparent 72%);
+      border-radius: 50% 50% 45% 45%;
+      filter: blur(0.4px);
+      animation: flicker 1.8s ease-in-out infinite;
+    }
+    @keyframes flicker {
+      0%, 100% { transform: translateX(-50%) scaleY(1); opacity: 0.95; }
+      40% { transform: translateX(-48%) scaleY(1.08); opacity: 1; }
+      70% { transform: translateX(-52%) scaleY(0.94); opacity: 0.88; }
+    }
+    .base {
+      width: 168px;
+      height: 18px;
+      margin: -2px auto 0;
+      background: linear-gradient(180deg, #f0c868, var(--brass), #6a4818);
+      border-radius: 4px 4px 8px 8px;
+    }
+    .tassel {
+      width: 6px;
+      height: 28px;
+      margin: 0 auto;
+      background: linear-gradient(var(--brass), transparent);
+      border-radius: 0 0 4px 4px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+      padding: 0 1rem 5.2rem;
+      width: min(420px, 100%);
+    }
+    button {
+      font-family: inherit;
+      font-size: 1.15rem;
+      min-height: 44px;
+      padding: 0 1.15rem;
+      cursor: pointer;
+      touch-action: manipulation;
+      background: transparent;
+      color: var(--brass);
+      border: 1px solid color-mix(in srgb, var(--brass) 55%, transparent);
+      border-radius: 999px;
+    }
+    button.main {
+      background: var(--brass);
+      color: var(--night);
+      min-width: 160px;
+    }
+    .pattern {
+      width: 100%;
+      text-align: center;
+      font-size: 1rem;
+      color: color-mix(in srgb, var(--brass) 75%, #fff);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .flame { animation: none; }
+      .lantern { transition: opacity 0.4s ease, filter 0.4s ease; }
+      .lantern.inhale, .lantern.hold, .lantern.exhale, .lantern.rest { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="vault" href="../">الخزانة</a>
+  <header>
+    <h1>فانوس</h1>
+    <p>تنفس مع الضوء. لا عجلة.</p>
+  </header>
+  <div class="scene">
+    <p class="phase" id="phase">جاهز</p>
+    <p class="count" id="count">اضغط للبدء</p>
+    <div class="lantern-space">
+      <div class="lantern rest" id="lantern" aria-hidden="true">
+        <div class="chain"></div>
+        <div class="cap"></div>
+        <div class="dome"></div>
+        <div class="body">
+          <div class="pane"></div>
+          <div class="flame"></div>
+        </div>
+        <div class="base"></div>
+        <div class="tassel"></div>
+      </div>
+    </div>
+  </div>
+  <div class="controls">
+    <button type="button" class="main" id="toggle">ابدأ</button>
+    <button type="button" id="pattern">النمط: ٤–٤–٦–٢</button>
+    <p class="pattern" id="legend">شهيق ٤ · احبس ٤ · زفير ٦ · اسكن ٢</p>
+  </div>
+  <script>
+    (function () {
+      const PATTERNS = [
+        {
+          id: "4462",
+          label: "النمط: ٤–٤–٦–٢",
+          legend: "شهيق ٤ · احبس ٤ · زفير ٦ · اسكن ٢",
+          steps: [
+            { name: "شهيق", cls: "inhale", sec: 4 },
+            { name: "احبس", cls: "hold", sec: 4 },
+            { name: "زفير", cls: "exhale", sec: 6 },
+            { name: "اسكن", cls: "rest", sec: 2 }
+          ]
+        },
+        {
+          id: "478",
+          label: "النمط: ٤–٧–٨",
+          legend: "شهيق ٤ · احبس ٧ · زفير ٨",
+          steps: [
+            { name: "شهيق", cls: "inhale", sec: 4 },
+            { name: "احبس", cls: "hold", sec: 7 },
+            { name: "زفير", cls: "exhale", sec: 8 }
+          ]
+        }
+      ];
+      const lantern = document.getElementById("lantern");
+      const phaseEl = document.getElementById("phase");
+      const countEl = document.getElementById("count");
+      const toggleBtn = document.getElementById("toggle");
+      const patternBtn = document.getElementById("pattern");
+      const legendEl = document.getElementById("legend");
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let pi = 0;
+      let running = false;
+      let step = 0;
+      let left = 0;
+      let timer = 0;
+      let audioCtx = null;
+
+      function whoosh() {
+        try {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          if (audioCtx.state === "suspended") audioCtx.resume();
+          const t = audioCtx.currentTime;
+          const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.35, audioCtx.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+          const src = audioCtx.createBufferSource();
+          src.buffer = buf;
+          const filt = audioCtx.createBiquadFilter();
+          filt.type = "lowpass";
+          filt.frequency.value = 420;
+          const g = audioCtx.createGain();
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.04, t + 0.04);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+          src.connect(filt);
+          filt.connect(g);
+          g.connect(audioCtx.destination);
+          src.start(t);
+          src.stop(t + 0.35);
+        } catch (err) {}
+      }
+
+      function setLantern(cls) {
+        lantern.className = "lantern " + cls;
+        if (reduced) lantern.style.transform = "none";
+      }
+
+      function show(stepObj, remain) {
+        phaseEl.textContent = stepObj.name;
+        countEl.textContent = remain + " ث";
+        setLantern(stepObj.cls);
+      }
+
+      function tick() {
+        if (!running) return;
+        const steps = PATTERNS[pi].steps;
+        if (left <= 0) {
+          step = (step + 1) % steps.length;
+          left = steps[step].sec;
+        }
+        show(steps[step], left);
+        left -= 1;
+        timer = window.setTimeout(tick, 1000);
+      }
+
+      function start() {
+        running = true;
+        step = 0;
+        left = PATTERNS[pi].steps[0].sec;
+        toggleBtn.textContent = "إيقاف";
+        whoosh();
+        show(PATTERNS[pi].steps[0], left);
+        left -= 1;
+        timer = window.setTimeout(tick, 1000);
+      }
+      function stop() {
+        running = false;
+        window.clearTimeout(timer);
+        toggleBtn.textContent = "ابدأ";
+        phaseEl.textContent = "جاهز";
+        countEl.textContent = "اضغط للبدء";
+        setLantern("rest");
+      }
+
+      toggleBtn.addEventListener("click", function () {
+        if (running) stop();
+        else start();
+      });
+      lantern.addEventListener("click", function () {
+        if (running) stop();
+        else start();
+      });
+      patternBtn.addEventListener("click", function () {
+        const was = running;
+        if (was) stop();
+        pi = (pi + 1) % PATTERNS.length;
+        patternBtn.textContent = PATTERNS[pi].label;
+        legendEl.textContent = PATTERNS[pi].legend;
+        if (was) start();
+      });
+    })();
+  </script>
+</body>
+</html>

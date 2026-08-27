@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sonar — صدى</title>
+  <meta name="description" content="A dark cave. Ping to see walls and the exit. Twelve echoes. Walk out.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #080c10; --cyan: #3aa8b8; --ink: #a8e0e8; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--ink); }
+    body {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    .top {
+      position: absolute;
+      top: max(10px, env(safe-area-inset-top));
+      left: 0; right: 0;
+      text-align: center;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .top h1 {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      color: var(--cyan);
+    }
+    .pings {
+      display: flex;
+      gap: 5px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .pings i {
+      width: 10px; height: 10px;
+      border: 1px solid var(--cyan);
+      border-radius: 50%;
+      display: block;
+    }
+    .pings i.on { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+    .status {
+      margin-top: 8px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: #6a9aa0;
+    }
+    .pad {
+      position: absolute;
+      bottom: max(16px, env(safe-area-inset-bottom));
+      left: 12px;
+      display: grid;
+      grid-template-columns: 48px 48px 48px;
+      grid-template-rows: 48px 48px 48px;
+      gap: 4px;
+      z-index: 3;
+    }
+    .pad button {
+      width: 48px; height: 48px;
+      border: 1px solid #2a6870;
+      background: rgba(8,12,16,0.75);
+      color: var(--cyan);
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .pad button:nth-child(1) { grid-column: 2; grid-row: 1; }
+    .pad button:nth-child(2) { grid-column: 1; grid-row: 2; }
+    .pad button:nth-child(3) { grid-column: 3; grid-row: 2; }
+    .pad button:nth-child(4) { grid-column: 2; grid-row: 3; }
+    .pad button:active { background: #143038; }
+    .pingbtn {
+      position: absolute;
+      bottom: max(20px, env(safe-area-inset-bottom));
+      right: 16px;
+      z-index: 3;
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      border: 2px solid var(--cyan);
+      background: rgba(8,20,24,0.8);
+      color: var(--cyan);
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      cursor: pointer;
+    }
+    .pingbtn:focus-visible, .pad button:focus-visible {
+      outline: 2px solid var(--cyan); outline-offset: 2px;
+    }
+    .vault {
+      position: absolute;
+      top: max(10px, env(safe-area-inset-top));
+      right: 12px;
+      z-index: 3;
+      font-size: 11px;
+      color: #4a7078;
+      text-decoration: none;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      letter-spacing: 0.12em;
+    }
+    .cover {
+      position: absolute;
+      inset: 0;
+      background: rgba(8,12,16,0.72);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 4;
+      padding: 24px;
+      text-align: center;
+    }
+    .cover.hidden { display: none; }
+    .cover h2 { letter-spacing: 0.3em; font-size: 22px; margin-bottom: 10px; }
+    .cover p { font-size: 13px; line-height: 1.6; color: #8ab8c0; max-width: 320px; }
+    .cover button {
+      margin-top: 18px;
+      min-height: 44px;
+      min-width: 160px;
+      padding: 10px 18px;
+      border: 1px solid var(--cyan);
+      background: transparent;
+      color: var(--cyan);
+      font-family: inherit;
+      letter-spacing: 0.16em;
+      cursor: pointer;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pings i.on { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c" aria-label="Dark cave"></canvas>
+  <div class="top">
+    <h1>Sonar  صدى</h1>
+    <div class="pings" id="pings"></div>
+    <div class="status" id="status">tap to ping · WASD to move</div>
+  </div>
+  <a class="vault" href="../">الخزانة</a>
+  <div class="pad" aria-label="Move">
+    <button type="button" data-k="KeyW">W</button>
+    <button type="button" data-k="KeyA">A</button>
+    <button type="button" data-k="KeyD">D</button>
+    <button type="button" data-k="KeyS">S</button>
+  </div>
+  <button class="pingbtn" type="button" id="pingBtn">PING</button>
+  <div class="cover" id="cover">
+    <div>
+      <h2>SONAR</h2>
+      <p>The cave is black. Tap or PING to throw a cyan echo — walls and the exit flare, then fade. Twelve pings. Walk with WASD or the pad to the exit mark.</p>
+      <button type="button" id="enter">ENTER</button>
+    </div>
+  </div>
+  <script>
+(function () {
+  "use strict";
+  var COLS = 21, ROWS = 15;
+  var canvas = document.getElementById("c");
+  var ctx = canvas.getContext("2d");
+  var pingsEl = document.getElementById("pings");
+  var statusEl = document.getElementById("status");
+  var cover = document.getElementById("cover");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var W = 0, H = 0, dpr = 1, cell = 20, ox = 0, oy = 0;
+  var maze = [];
+  var seen = [];
+  var player = { x: 1.5, y: 1.5 };
+  var exitC = { x: COLS - 2, y: ROWS - 2 };
+  var pingsLeft = 12;
+  var keys = Object.create(null);
+  var pings = [];
+  var lurk = { x: 10, y: 8, t: 0 };
+  var won = false;
+  var started = false;
+  var last = 0;
+  var audio = null;
+  var fadeT = 2.4;
+
+  function unlockAudio() {
+    if (audio) {
+      if (audio.ctx.state === "suspended") audio.ctx.resume();
+      return;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = { ctx: new AC() };
+  }
+  function pingSound() {
+    if (!audio) return;
+    var t = audio.ctx.currentTime;
+    var o = audio.ctx.createOscillator();
+    var g = audio.ctx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(880, t);
+    o.frequency.exponentialRampToValueAtTime(220, t + 0.55);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.2, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    o.connect(g); g.connect(audio.ctx.destination);
+    o.start(t); o.stop(t + 0.62);
+  }
+
+  function genMaze() {
+    maze = [];
+    seen = [];
+    for (var y = 0; y < ROWS; y++) {
+      maze[y] = [];
+      seen[y] = [];
+      for (var x = 0; x < COLS; x++) {
+        maze[y][x] = 1;
+        seen[y][x] = 0;
+      }
+    }
+    function carve(x, y) {
+      maze[y][x] = 0;
+      var dirs = [[2, 0], [-2, 0], [0, 2], [0, -2]];
+      for (var i = dirs.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = dirs[i]; dirs[i] = dirs[j]; dirs[j] = tmp;
+      }
+      for (var k = 0; k < dirs.length; k++) {
+        var nx = x + dirs[k][0], ny = y + dirs[k][1];
+        if (nx > 0 && ny > 0 && nx < COLS - 1 && ny < ROWS - 1 && maze[ny][nx] === 1) {
+          maze[y + dirs[k][1] / 2][x + dirs[k][0] / 2] = 0;
+          carve(nx, ny);
+        }
+      }
+    }
+    carve(1, 1);
+    maze[1][1] = 0;
+    maze[ROWS - 2][COLS - 2] = 0;
+    player.x = 1.5;
+    player.y = 1.5;
+    exitC.x = COLS - 2;
+    exitC.y = ROWS - 2;
+    lurk.x = Math.floor(COLS / 2) + 0.5;
+    lurk.y = Math.floor(ROWS / 2) + 0.5;
+    pingsLeft = 12;
+    pings = [];
+    won = false;
+    renderPings();
+  }
+
+  function renderPings() {
+    pingsEl.innerHTML = "";
+    for (var i = 0; i < 12; i++) {
+      var d = document.createElement("i");
+      if (i < pingsLeft) d.className = "on";
+      pingsEl.appendChild(d);
+    }
+  }
+
+  function worldToCell(x, y) {
+    return { x: Math.floor(x), y: Math.floor(y) };
+  }
+  function blocked(x, y) {
+    var c = worldToCell(x, y);
+    if (c.x < 0 || c.y < 0 || c.x >= COLS || c.y >= ROWS) return true;
+    return maze[c.y][c.x] === 1;
+  }
+  function solidAt(px, py, r) {
+    return blocked(px - r, py) || blocked(px + r, py) || blocked(px, py - r) || blocked(px, py + r);
+  }
+
+  function doPing() {
+    if (!started || won || pingsLeft <= 0) return;
+    pingsLeft -= 1;
+    renderPings();
+    pings.push({ x: player.x, y: player.y, r: 0, max: 7.2, alive: true });
+    pingSound();
+    statusEl.textContent = pingsLeft + " pings left";
+  }
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var pad = 16;
+    cell = Math.min((W - pad * 2) / COLS, (H - pad * 2) / ROWS);
+    ox = (W - cell * COLS) / 2;
+    oy = (H - cell * ROWS) / 2;
+  }
+
+  function update(dt) {
+    if (!started) return;
+    lurk.t += dt;
+    lurk.x += Math.sin(lurk.t * 0.4) * 0.4 * dt;
+    lurk.y += Math.cos(lurk.t * 0.33) * 0.35 * dt;
+
+    var now = performance.now() / 1000;
+    for (var y = 0; y < ROWS; y++) {
+      for (var x = 0; x < COLS; x++) {
+        if (seen[y][x] > 0) seen[y][x] = Math.max(0, seen[y][x] - dt);
+      }
+    }
+    pings.forEach(function (p) {
+      if (!p.alive) return;
+      p.r += (reduce ? 10 : 14) * dt;
+      var rr = p.r;
+      for (var y = 0; y < ROWS; y++) {
+        for (var x = 0; x < COLS; x++) {
+          var cx = x + 0.5, cy = y + 0.5;
+          var d = Math.hypot(cx - p.x, cy - p.y);
+          if (d <= rr && d >= rr - 1.15) seen[y][x] = fadeT;
+        }
+      }
+      if (p.r >= p.max) p.alive = false;
+    });
+    pings = pings.filter(function (p) { return p.alive || p.r < p.max + 0.2; });
+
+    if (won) return;
+    var ax = 0, ay = 0;
+    if (keys.KeyA || keys.ArrowLeft) ax -= 1;
+    if (keys.KeyD || keys.ArrowRight) ax += 1;
+    if (keys.KeyW || keys.ArrowUp) ay -= 1;
+    if (keys.KeyS || keys.ArrowDown) ay += 1;
+    if (ax || ay) {
+      var len = Math.hypot(ax, ay) || 1;
+      var sp = 2.6;
+      var nx = player.x + (ax / len) * sp * dt;
+      var ny = player.y + (ay / len) * sp * dt;
+      var r = 0.22;
+      if (!solidAt(nx, player.y, r)) player.x = nx;
+      if (!solidAt(player.x, ny, r)) player.y = ny;
+    }
+    if (Math.floor(player.x) === exitC.x && Math.floor(player.y) === exitC.y) {
+      won = true;
+      statusEl.textContent = "exit found";
+      cover.classList.remove("hidden");
+      cover.querySelector("h2").textContent = "SURFACE";
+      cover.querySelector("p").textContent = "The last ping was enough. You found the mouth of the cave.";
+      cover.querySelector("button").textContent = "AGAIN";
+    }
+  }
+
+  function draw() {
+    ctx.fillStyle = "#080c10";
+    ctx.fillRect(0, 0, W, H);
+    for (var y = 0; y < ROWS; y++) {
+      for (var x = 0; x < COLS; x++) {
+        var vis = seen[y][x] / fadeT;
+        if (vis <= 0.02) continue;
+        var px = ox + x * cell, py = oy + y * cell;
+        ctx.globalAlpha = vis;
+        if (maze[y][x] === 1) {
+          ctx.fillStyle = "#163038";
+          ctx.fillRect(px + 1, py + 1, cell - 2, cell - 2);
+          ctx.strokeStyle = "#3aa8b8";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px + 2, py + 2, cell - 4, cell - 4);
+        } else {
+          ctx.fillStyle = "#0c181c";
+          ctx.fillRect(px, py, cell, cell);
+        }
+        if (x === exitC.x && y === exitC.y) {
+          ctx.strokeStyle = "#d8f4f8";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(px + cell / 2, py + cell / 2, cell * 0.28, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    pings.forEach(function (p) {
+      var a = Math.max(0, 1 - p.r / p.max);
+      ctx.beginPath();
+      ctx.arc(ox + p.x * cell, oy + p.y * cell, p.r * cell, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(58,168,184," + (a * 0.85) + ")";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+    var lx = Math.floor(lurk.x), ly = Math.floor(lurk.y);
+    if (lx >= 0 && ly >= 0 && lx < COLS && ly < ROWS && seen[ly] && seen[ly][lx] > 0.4) {
+      ctx.globalAlpha = seen[ly][lx] / fadeT;
+      ctx.fillStyle = "#1a3040";
+      ctx.beginPath();
+      ctx.ellipse(ox + lurk.x * cell, oy + lurk.y * cell, cell * 0.35, cell * 0.22, lurk.t, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = "#3aa8b8";
+    ctx.beginPath();
+    ctx.arc(ox + player.x * cell, oy + player.y * cell, cell * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(216,244,248,0.5)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  function loop(now) {
+    if (!last) last = now;
+    var dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.1) dt = 0.1;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function bindKey(code, down) { keys[code] = down; }
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") { e.preventDefault(); unlockAudio(); doPing(); return; }
+    if (e.code === "KeyW" || e.code === "KeyA" || e.code === "KeyS" || e.code === "KeyD" ||
+        e.code === "ArrowUp" || e.code === "ArrowDown" || e.code === "ArrowLeft" || e.code === "ArrowRight") {
+      e.preventDefault();
+      bindKey(e.code, true);
+    }
+  });
+  window.addEventListener("keyup", function (e) { bindKey(e.code, false); });
+  window.addEventListener("blur", function () { keys = Object.create(null); });
+
+  document.querySelectorAll(".pad button").forEach(function (b) {
+    var k = b.getAttribute("data-k");
+    b.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      bindKey(k, true);
+    });
+    b.addEventListener("pointerup", function () { bindKey(k, false); });
+    b.addEventListener("pointerleave", function () { bindKey(k, false); });
+    b.addEventListener("pointercancel", function () { bindKey(k, false); });
+  });
+  document.getElementById("pingBtn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    unlockAudio();
+    doPing();
+  });
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    unlockAudio();
+    doPing();
+  });
+  document.getElementById("enter").addEventListener("click", function () {
+    unlockAudio();
+    genMaze();
+    started = true;
+    cover.classList.add("hidden");
+    statusEl.textContent = "tap to ping · WASD to move";
+  });
+
+  window.__controlsTest = {
+    getYaw: function () { return 0; },
+    getSpeed: function () { return (keys.KeyW || keys.KeyS || keys.KeyA || keys.KeyD) ? 1 : 0; },
+    getPos: function () { return { x: player.x, y: player.y }; },
+    setKeys: function (codes) {
+      keys = Object.create(null);
+      (codes || []).forEach(function (c) { keys[c] = true; });
+    }
+  };
+
+  window.addEventListener("resize", resize);
+  genMaze();
+  resize();
+  requestAnimationFrame(loop);
+})();
+  </script>
+</body>
+</html>

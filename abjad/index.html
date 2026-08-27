@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>أبجد — قرص حساب الجمل</title>
+  <meta name="description" content="قرص نحاسي دوّار لحساب الجمل: أرقام أبجد، إزاحة قيصر، ومجموع الكلمة.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --pine: #143022; --gold: #c4a45a; --parch: #e8f0e4; --brass: #8a7038; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; }
+    body {
+      font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+      background: var(--parch);
+      color: var(--pine);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .sheet {
+      min-height: 100dvh;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(196,164,90,0.18), transparent 40%),
+        repeating-linear-gradient(0deg, transparent 0 31px, rgba(20,48,34,0.04) 31px 32px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 12px 80px;
+    }
+    .plaque {
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .plaque h1 {
+      font-family: "Cormorant Garamond", serif;
+      font-size: clamp(1.4rem, 4vw, 1.8rem);
+      letter-spacing: 0.38em;
+      font-weight: 600;
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+    .plaque p { font-size: 0.82rem; color: #2a4a38; margin-top: 2px; }
+    .instrument {
+      width: min(92vw, 540px);
+      aspect-ratio: 1;
+      position: relative;
+      cursor: grab;
+      touch-action: none;
+      filter: drop-shadow(0 18px 24px rgba(20,48,34,0.28));
+    }
+    .instrument:active { cursor: grabbing; }
+    canvas#disk { width: 100%; height: 100%; display: block; }
+    .pointer {
+      position: absolute;
+      top: -2px; left: 50%;
+      width: 0; height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-top: 18px solid var(--gold);
+      transform: translateX(-50%);
+      filter: drop-shadow(0 2px 0 #143022);
+      pointer-events: none;
+    }
+    .panel {
+      width: min(92vw, 540px);
+      margin-top: 18px;
+      background: linear-gradient(#1a3a28, #143022);
+      color: var(--parch);
+      padding: 16px 16px 18px;
+      border: 1px solid var(--gold);
+      box-shadow: inset 0 0 0 4px #143022, 0 0 0 1px #8a7038;
+    }
+    label { display: block; font-size: 0.78rem; letter-spacing: 0.08em; color: var(--gold); margin-bottom: 6px; }
+    input[type="text"] {
+      width: 100%;
+      min-height: 48px;
+      background: #0e2418;
+      border: 1px solid var(--gold);
+      color: var(--parch);
+      font-family: inherit;
+      font-size: 1.15rem;
+      padding: 8px 12px;
+      text-align: center;
+    }
+    input:focus { outline: 2px solid var(--gold); }
+    .readout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .cell {
+      background: #0e2418;
+      padding: 10px;
+      min-height: 72px;
+      border: 1px solid rgba(196,164,90,0.35);
+    }
+    .cell span { display: block; font-size: 0.72rem; color: var(--gold); letter-spacing: 0.06em; }
+    .cell b {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 1.55rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .map {
+      margin-top: 10px;
+      font-size: 0.88rem;
+      line-height: 1.7;
+      min-height: 2.6em;
+      word-break: break-word;
+    }
+    .hint { margin-top: 8px; font-size: 0.75rem; opacity: 0.7; }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="plaque">
+      <h1>ABJAD</h1>
+      <p>قرص تشفير نحاسي · حساب الجمل</p>
+    </div>
+    <div class="instrument" id="inst">
+      <div class="pointer" aria-hidden="true"></div>
+      <canvas id="disk" width="540" height="540" aria-label="قرص أبجد قابل للدوران"></canvas>
+    </div>
+    <div class="panel">
+      <label for="word">اكتب كلمة أو جملة</label>
+      <input id="word" type="text" value="أبجد" autocomplete="off" spellcheck="false">
+      <div class="readout">
+        <div class="cell"><span>حساب الجمل</span><b id="sum">0</b></div>
+        <div class="cell"><span>إزاحة القرص</span><b id="off">0</b></div>
+      </div>
+      <div class="map" id="map"></div>
+      <p class="hint">اسحب القرص الداخلي. كل حرف يقابل قيمة، والإزاحة تبدّل المقابلة كقيصر عربي.</p>
+    </div>
+  </div>
+  <a href="../" style="position:fixed;bottom:12px;inset-inline-start:12px;z-index:50;font-size:11px;letter-spacing:.12em;opacity:.4;color:#143022;text-decoration:none">الخزانة</a>
+  <script>
+  (function () {
+    const LETTERS = ["ا","ب","ج","د","ه","و","ز","ح","ط","ي","ك","ل","م","ن","س","ع","ف","ص","ق","ر","ش","ت","ث","خ","ذ","ض","ظ","غ"];
+    const VALS = [1,2,3,4,5,6,7,8,9,10,20,30,40,50,60,70,80,90,100,200,300,400,500,600,700,800,900,1000];
+    const N = LETTERS.length;
+    const ALIASES = { "أ":"ا","إ":"ا","آ":"ا","ء":"ا","ؤ":"و","ئ":"ي","ة":"ه","ى":"ي","ٱ":"ا" };
+
+    const canvas = document.getElementById("disk");
+    const ctx = canvas.getContext("2d");
+    let offset = 0;
+    let dragging = false;
+    let lastAng = 0;
+    let spin = 0;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function sizeCanvas() {
+      const r = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(r.width * dpr);
+      canvas.height = Math.round(r.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      canvas._s = r.width;
+    }
+    sizeCanvas();
+    addEventListener("resize", () => { sizeCanvas(); draw(); });
+
+    function brass(x, y, r, inner) {
+      const g = ctx.createRadialGradient(x - r * 0.25, y - r * 0.3, r * 0.1, x, y, r);
+      g.addColorStop(0, inner ? "#e8d08a" : "#d4b86a");
+      g.addColorStop(0.45, "#c4a45a");
+      g.addColorStop(0.78, "#8a7038");
+      g.addColorStop(1, "#4a3818");
+      return g;
+    }
+
+    function draw() {
+      const S = canvas._s || 540;
+      const cx = S / 2, cy = S / 2;
+      ctx.clearRect(0, 0, S, S);
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, S * 0.49, 0, Math.PI * 2);
+      ctx.fillStyle = brass(cx, cy, S * 0.49, false);
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#3a2a10";
+      ctx.stroke();
+
+      const outerR = S * 0.455;
+      const midR = S * 0.33;
+      const innerR = S * 0.20;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      for (let i = 0; i < N; i++) {
+        const a0 = (i / N) * Math.PI * 2 - Math.PI / 2;
+        const a1 = ((i + 1) / N) * Math.PI * 2 - Math.PI / 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, outerR, a0, a1);
+        ctx.arc(0, 0, midR, a1, a0, true);
+        ctx.closePath();
+        ctx.fillStyle = i % 2 ? "#b89248" : "#c4a45a";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(20,48,34,0.35)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        const am = (a0 + a1) / 2;
+        const rr = (outerR + midR) / 2;
+        ctx.save();
+        ctx.translate(Math.cos(am) * rr, Math.sin(am) * rr);
+        ctx.rotate(am + Math.PI / 2);
+        ctx.fillStyle = "#143022";
+        ctx.font = "600 " + Math.max(10, S * 0.028) + "px 'Cormorant Garamond', serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(VALS[i]), 0, 0);
+        ctx.restore();
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(spin);
+      ctx.beginPath();
+      ctx.arc(0, 0, midR - 2, 0, Math.PI * 2);
+      ctx.fillStyle = brass(0, 0, midR, true);
+      ctx.fill();
+      for (let i = 0; i < N; i++) {
+        const a0 = (i / N) * Math.PI * 2 - Math.PI / 2;
+        const a1 = ((i + 1) / N) * Math.PI * 2 - Math.PI / 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, midR - 4, a0, a1);
+        ctx.arc(0, 0, innerR, a1, a0, true);
+        ctx.closePath();
+        ctx.fillStyle = i % 2 ? "#d8bc70" : "#e0c878";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(20,48,34,0.25)";
+        ctx.stroke();
+        const am = (a0 + a1) / 2;
+        const rr = (midR + innerR) / 2 - 2;
+        ctx.save();
+        ctx.translate(Math.cos(am) * rr, Math.sin(am) * rr);
+        ctx.rotate(am + Math.PI / 2);
+        ctx.fillStyle = "#143022";
+        ctx.font = "600 " + Math.max(13, S * 0.036) + "px 'IBM Plex Sans Arabic', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(LETTERS[i], 0, 0);
+        ctx.restore();
+      }
+      ctx.beginPath();
+      ctx.arc(0, 0, innerR - 2, 0, Math.PI * 2);
+      ctx.fillStyle = "#143022";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, innerR * 0.55, 0, Math.PI * 2);
+      ctx.fillStyle = brass(0, 0, innerR * 0.55, true);
+      ctx.fill();
+      ctx.fillStyle = "#143022";
+      ctx.font = "600 " + Math.max(14, S * 0.04) + "px 'Cormorant Garamond', serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("أبجد", 0, 0);
+      ctx.restore();
+
+      ctx.strokeStyle = "#c4a45a";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - midR + 4);
+      ctx.lineTo(cx, cy - outerR + 6);
+      ctx.stroke();
+    }
+
+    function angleAt(e) {
+      const r = canvas.getBoundingClientRect();
+      const x = (e.clientX ?? e.touches[0].clientX) - r.left - r.width / 2;
+      const y = (e.clientY ?? e.touches[0].clientY) - r.top - r.height / 2;
+      return Math.atan2(y, x);
+    }
+    function onDown(e) {
+      dragging = true;
+      lastAng = angleAt(e);
+      e.preventDefault();
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      const a = angleAt(e);
+      let d = a - lastAng;
+      if (d > Math.PI) d -= Math.PI * 2;
+      if (d < -Math.PI) d += Math.PI * 2;
+      spin += d;
+      lastAng = a;
+      const step = (Math.PI * 2) / N;
+      offset = ((Math.round(spin / step) % N) + N) % N;
+      update();
+      draw();
+      e.preventDefault();
+    }
+    function onUp() { dragging = false; }
+    canvas.addEventListener("pointerdown", onDown);
+    addEventListener("pointermove", onMove);
+    addEventListener("pointerup", onUp);
+
+    function norm(ch) { return ALIASES[ch] || ch; }
+    function idxOf(ch) {
+      const n = norm(ch);
+      return LETTERS.indexOf(n);
+    }
+
+    function update() {
+      const raw = document.getElementById("word").value;
+      let sum = 0;
+      const parts = [];
+      const shifted = [];
+      for (const ch of raw) {
+        const i = idxOf(ch);
+        if (i < 0) {
+          if (ch.trim()) shifted.push(ch);
+          continue;
+        }
+        sum += VALS[i];
+        const j = (i + offset) % N;
+        parts.push(ch + "=" + VALS[i]);
+        shifted.push(LETTERS[j] + "⟨" + VALS[j] + "⟩");
+      }
+      document.getElementById("sum").textContent = sum;
+      document.getElementById("off").textContent = offset;
+      document.getElementById("map").textContent = parts.length
+        ? parts.join("  ·  ") + (offset ? "   ←   " + shifted.join(" ") : "")
+        : "لا حروف أبجدية بعد.";
+    }
+    document.getElementById("word").addEventListener("input", update);
+    update();
+    draw();
+  })();
+  </script>
+</body>
+</html>

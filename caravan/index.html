@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>قافلة — Caravan</title>
+  <meta name="description" content="قِد الماء عبر الكثبان. حرّك القافلة بلاطةً تلو الأخرى حتى الواحة، قبل أن ينفد الماء.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Changa:wght@500;600;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --tan: #eadcc0;
+      --tan-dark: #d4c09a;
+      --teal: #6a8a6a;
+      --indigo: #1c2438;
+      --ink: #3a2c18;
+      --dune: #c4a06a;
+      --well: #4a7a8a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; background: var(--indigo); color: var(--tan); }
+    body {
+      font-family: Changa, "Source Sans 3", sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+    }
+    .night {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(ellipse at 20% 0%, #2a3450 0%, transparent 50%),
+        linear-gradient(#1c2438, #243044 40%, #3a4030 100%);
+      padding: 12px 12px 20px;
+    }
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 4px 4px 10px;
+    }
+    h1 {
+      font-size: clamp(26px, 7vw, 36px);
+      font-weight: 700;
+      line-height: 1;
+      color: var(--tan);
+    }
+    h1 small {
+      display: block;
+      font-size: 0.42em;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      color: var(--teal);
+      margin-top: 4px;
+    }
+    .stamps {
+      display: flex;
+      gap: 8px;
+    }
+    .stamp {
+      min-width: 64px;
+      min-height: 52px;
+      padding: 6px 10px;
+      background: var(--tan);
+      color: var(--ink);
+      border-radius: 2px 8px 2px 8px;
+      text-align: center;
+      box-shadow: 2px 3px 0 #0e121c;
+    }
+    .stamp b { display: block; font-size: 22px; line-height: 1.1; }
+    .stamp span { font-size: 11px; color: #6a5a40; }
+    .board-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 280px;
+    }
+    canvas {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      touch-action: none;
+      cursor: pointer;
+    }
+    .msg {
+      min-height: 48px;
+      text-align: center;
+      font-size: 16px;
+      line-height: 1.4;
+      color: var(--tan);
+      padding: 8px 8px 4px;
+    }
+    .bar {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+    .bar button {
+      min-height: 44px;
+      min-width: 120px;
+      padding: 8px 18px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      border: 0;
+      cursor: pointer;
+      background: var(--teal);
+      color: #f4f0e4;
+    }
+    .bar button:focus-visible { outline: 2px solid var(--tan); outline-offset: 2px; }
+    .vault {
+      position: absolute;
+      top: max(10px, env(safe-area-inset-top));
+      left: 12px;
+      font-size: 12px;
+      color: #8a9aaa;
+      text-decoration: none;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      font-family: "Source Sans 3", sans-serif;
+      letter-spacing: 0.08em;
+    }
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      font-size: 12px;
+      color: #c8c0a8;
+      padding: 4px 0 8px;
+    }
+    .legend i {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      canvas { cursor: default; }
+    }
+  </style>
+</head>
+<body>
+  <a class="vault" href="../">الخزانة</a>
+  <div class="night">
+    <header>
+      <h1>قافلة<small>CARAVAN</small></h1>
+      <div class="stamps">
+        <div class="stamp"><b id="water">12</b><span>ماء</span></div>
+        <div class="stamp"><b id="days">0</b><span>أيام</span></div>
+      </div>
+    </header>
+    <div class="legend">
+      <span><i style="background:#6a8a6a"></i>واحة</span>
+      <span><i style="background:#4a7a8a"></i>بئر</span>
+      <span><i style="background:#c4a06a"></i>كثيب +1</span>
+    </div>
+    <div class="board-wrap"><canvas id="c" aria-label="خريطة القافلة"></canvas></div>
+    <p class="msg" id="msg">اثنتا عشرة قربة. انقر بلاطة مجاورة. الكثبان تكلف ماءً إضافيًا.</p>
+    <div class="bar">
+      <button type="button" id="restart">قافلة جديدة</button>
+    </div>
+  </div>
+  <script>
+(function () {
+  "use strict";
+  var COLS = 7, ROWS = 7;
+  var canvas = document.getElementById("c");
+  var ctx = canvas.getContext("2d");
+  var waterEl = document.getElementById("water");
+  var daysEl = document.getElementById("days");
+  var msgEl = document.getElementById("msg");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var size = 26, originX = 0, originY = 0, cssW = 0, cssH = 0, dpr = 1;
+  var grid = [];
+  var pos = { c: 0, r: 0 };
+  var path = [];
+  var water = 12, days = 0;
+  var over = false, won = false;
+  var pulse = 0;
+  var last = 0;
+  var hover = null;
+  var audio = null;
+
+  function cube(c, r) {
+    var x = c - (r - (r & 1)) / 2;
+    var z = r;
+    var y = -x - z;
+    return { x: x, y: y, z: z };
+  }
+  function hexDist(a, b) {
+    var ca = cube(a.c, a.r), cb = cube(b.c, b.r);
+    return (Math.abs(ca.x - cb.x) + Math.abs(ca.y - cb.y) + Math.abs(ca.z - cb.z)) / 2;
+  }
+  function neighbors(c, r) {
+    var odd = r & 1;
+    var d = odd
+      ? [[1, 0], [1, -1], [0, -1], [-1, 0], [0, 1], [1, 1]]
+      : [[1, 0], [0, -1], [-1, -1], [-1, 0], [-1, 1], [0, 1]];
+    var out = [];
+    for (var i = 0; i < d.length; i++) {
+      var nc = c + d[i][0], nr = r + d[i][1];
+      if (nc >= 0 && nr >= 0 && nc < COLS && nr < ROWS) out.push({ c: nc, r: nr });
+    }
+    return out;
+  }
+  function hexToPixel(c, r) {
+    var x = size * Math.sqrt(3) * (c + 0.5 * (r & 1));
+    var y = size * 1.5 * r;
+    return { x: originX + x, y: originY + y };
+  }
+  function pixelToHex(px, py) {
+    var best = null, bestD = 1e9;
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        var p = hexToPixel(c, r);
+        var d = (p.x - px) * (p.x - px) + (p.y - py) * (p.y - py);
+        if (d < bestD) { bestD = d; best = { c: c, r: r }; }
+      }
+    }
+    if (best && Math.sqrt(bestD) <= size * 1.05) return best;
+    return null;
+  }
+  function cell(c, r) { return grid[r * COLS + c]; }
+
+  function generate() {
+    grid = [];
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        grid.push({ c: c, r: r, t: "sand" });
+      }
+    }
+    var start = { c: 0, r: 3 };
+    var goal = { c: 6, r: 3 };
+    cell(start.c, start.r).t = "start";
+    cell(goal.c, goal.r).t = "oasis";
+    var corridor = [];
+    var cc = start.c, cr = start.r;
+    corridor.push(start);
+    var guard = 0;
+    while ((cc !== goal.c || cr !== goal.r) && guard++ < 80) {
+      var opts = neighbors(cc, cr).filter(function (n) {
+        return hexDist(n, goal) < hexDist({ c: cc, r: cr }, goal) || Math.random() < 0.2;
+      });
+      if (!opts.length) opts = neighbors(cc, cr);
+      var pick = opts[Math.floor(Math.random() * opts.length)];
+      cc = pick.c; cr = pick.r;
+      corridor.push({ c: cc, r: cr });
+    }
+    var wellCount = 3 + Math.floor(Math.random() * 3);
+    var placed = 0;
+    var tries = 0;
+    var corridorSet = {};
+    corridor.forEach(function (p) { corridorSet[p.c + "," + p.r] = true; });
+    while (placed < wellCount && tries++ < 80) {
+      var step = corridor[2 + Math.floor(Math.random() * Math.max(1, corridor.length - 4))];
+      if (!step) break;
+      var tile = cell(step.c, step.r);
+      if (tile.t === "sand") { tile.t = "well"; placed++; }
+    }
+    for (var i = 0; i < 14; i++) {
+      var dc = Math.floor(Math.random() * COLS);
+      var dr = Math.floor(Math.random() * ROWS);
+      var t = cell(dc, dr);
+      if (t.t === "sand" && !corridorSet[dc + "," + dr]) t.t = "dune";
+    }
+    pos = { c: start.c, r: start.r };
+    path = [{ c: pos.c, r: pos.r }];
+    water = 12;
+    days = 0;
+    over = false;
+    won = false;
+    hover = null;
+    syncHud();
+    msgEl.textContent = "اثنتا عشرة قربة. انقر بلاطة مجاورة. الكثبان تكلف ماءً إضافيًا.";
+  }
+
+  function syncHud() {
+    waterEl.textContent = String(water);
+    daysEl.textContent = String(days);
+  }
+
+  function unlockAudio() {
+    if (audio) {
+      if (audio.ctx.state === "suspended") audio.ctx.resume();
+      return;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = { ctx: new AC() };
+  }
+  function tone(f, d, type, v) {
+    if (!audio) return;
+    var t = audio.ctx.currentTime;
+    var o = audio.ctx.createOscillator();
+    var g = audio.ctx.createGain();
+    o.type = type || "sine";
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(v || 0.15, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g); g.connect(audio.ctx.destination);
+    o.start(t); o.stop(t + d + 0.02);
+  }
+
+  function tryMove(c, r) {
+    if (over) return;
+    if (hexDist(pos, { c: c, r: r }) !== 1) {
+      msgEl.textContent = "الخطوة للبلاطات المجاورة فقط.";
+      return;
+    }
+    var t = cell(c, r).t;
+    var cost = t === "dune" ? 2 : 1;
+    if (water < cost) {
+      msgEl.textContent = "الماء لا يكفي لهذه الخطوة" + (t === "dune" ? " على الكثيب." : ".");
+      tone(160, 0.12, "square", 0.08);
+      return;
+    }
+    water -= cost;
+    pos = { c: c, r: r };
+    path.push({ c: c, r: r });
+    days += 1;
+    if (t === "well") {
+      water += 4;
+      msgEl.textContent = "بئر. +4 ماء. القرب تملأ.";
+      tone(520, 0.14, "sine", 0.16);
+    } else if (t === "oasis") {
+      over = true;
+      won = true;
+      msgEl.textContent = "وصلت الواحة في " + days + " يوم" + (days === 1 ? "" : "ًا") + ". الماء المتبقي " + water + ".";
+      tone(660, 0.2, "sine", 0.18);
+      tone(880, 0.28, "sine", 0.12);
+    } else if (water <= 0) {
+      over = true;
+      won = false;
+      msgEl.textContent = "نفد الماء بعيدًا عن البئر. القافلة توقفت بعد " + days + " يوم.";
+      tone(110, 0.3, "triangle", 0.2);
+    } else if (t === "dune") {
+      msgEl.textContent = "كثيب. كلف الماء مضاعف.";
+    } else {
+      msgEl.textContent = "رمال. تبقّى " + water + " ماء.";
+    }
+    syncHud();
+  }
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    var wrap = canvas.parentElement.getBoundingClientRect();
+    var maxW = Math.min(wrap.width, 520);
+    size = Math.max(20, Math.min(32, maxW / (Math.sqrt(3) * (COLS + 0.5) + 0.4)));
+    var bw = size * Math.sqrt(3) * (COLS + 0.5);
+    var bh = size * 1.5 * (ROWS - 1) + size * 2;
+    originX = size * Math.sqrt(3) * 0.55;
+    originY = size * 1.15;
+    cssW = bw;
+    cssH = bh;
+    canvas.width = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function hexPath(x, y) {
+    ctx.beginPath();
+    for (var i = 0; i < 6; i++) {
+      var ang = Math.PI / 180 * (60 * i - 30);
+      var px = x + size * 0.98 * Math.cos(ang);
+      var py = y + size * 0.98 * Math.sin(ang);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, cssW, cssH);
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        var p = hexToPixel(c, r);
+        var t = cell(c, r).t;
+        hexPath(p.x, p.y);
+        if (t === "dune") ctx.fillStyle = "#c4a06a";
+        else if (t === "well") ctx.fillStyle = "#4a7a8a";
+        else if (t === "oasis") ctx.fillStyle = "#6a8a6a";
+        else if (t === "start") ctx.fillStyle = "#d8c8a0";
+        else ctx.fillStyle = "#eadcc0";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(28,36,56,0.35)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        if (t === "well") {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+          ctx.fillStyle = "#d8eef0";
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+          ctx.strokeStyle = "#2a5060";
+          ctx.stroke();
+        }
+        if (t === "oasis") {
+          ctx.fillStyle = "#2a4a32";
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y - 10);
+          ctx.quadraticCurveTo(p.x + 10, p.y, p.x, p.y + 8);
+          ctx.quadraticCurveTo(p.x - 10, p.y, p.x, p.y - 10);
+          ctx.fill();
+        }
+        if (t === "dune") {
+          ctx.strokeStyle = "rgba(90,60,30,0.45)";
+          ctx.beginPath();
+          ctx.moveTo(p.x - 8, p.y + 4);
+          ctx.quadraticCurveTo(p.x, p.y - 6, p.x + 8, p.y + 4);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.strokeStyle = "rgba(28,36,56,0.7)";
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (var i = 0; i < path.length; i++) {
+      var pp = hexToPixel(path[i].c, path[i].r);
+      if (i === 0) ctx.moveTo(pp.x, pp.y); else ctx.lineTo(pp.x, pp.y);
+    }
+    ctx.stroke();
+
+    if (hover && !over && hexDist(pos, hover) === 1) {
+      var hp = hexToPixel(hover.c, hover.r);
+      hexPath(hp.x, hp.y);
+      ctx.strokeStyle = "#1c2438";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    var cp = hexToPixel(pos.c, pos.r);
+    var bob = reduce ? 0 : Math.sin(pulse * 3) * 1.5;
+    ctx.save();
+    ctx.translate(cp.x, cp.y + bob);
+    ctx.fillStyle = "#3a2c18";
+    ctx.beginPath();
+    ctx.ellipse(0, 6, 9, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#5a3a20";
+    ctx.beginPath();
+    ctx.ellipse(-4, 2, 5, 3.2, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#eadcc0";
+    ctx.fillRect(-2, -6, 5, 8);
+    ctx.fillStyle = "#6a8a6a";
+    ctx.fillRect(-1, -10, 3, 5);
+    ctx.restore();
+
+    if (over) {
+      ctx.fillStyle = won ? "rgba(106,138,106,0.18)" : "rgba(80,30,20,0.22)";
+      ctx.fillRect(0, 0, cssW, cssH);
+    }
+  }
+
+  function loop(now) {
+    if (!last) last = now;
+    var dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.1) dt = 0.1;
+    pulse += dt;
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function eventPos(e) {
+    var rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    unlockAudio();
+    var p = eventPos(e);
+    var h = pixelToHex(p.x, p.y);
+    if (h) tryMove(h.c, h.r);
+  });
+  canvas.addEventListener("pointermove", function (e) {
+    var p = eventPos(e);
+    hover = pixelToHex(p.x, p.y);
+  });
+  document.getElementById("restart").addEventListener("click", function () {
+    unlockAudio();
+    generate();
+  });
+  window.addEventListener("resize", resize);
+  generate();
+  resize();
+  requestAnimationFrame(loop);
+})();
+  </script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>القلم · Qalam</title>
+  <meta name="description" content="تمرين حروف عربية بقلم قصب — العرض يتبع زاوية القص." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Karla:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root { --paper:#f7f1e4; --ink:#1b1c4a; --reed:#6a4a28; --fade:#1b1c4a22; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body { background: var(--paper); color: var(--ink); font-family: Karla, "Segoe UI", sans-serif; }
+    a.back { position:fixed; top:12px; left:12px; color:var(--ink); text-decoration:none; opacity:.5; min-height:44px; display:grid; place-items:center; z-index:3; }
+    header { padding: 56px 20px 8px; text-align:center; }
+    h1 { font-family: Amiri, serif; font-size: 2.6rem; margin: 0; }
+    .sub { opacity: .6; font-size: .85rem; letter-spacing: .12em; text-transform: uppercase; }
+    .letters { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding: 12px 16px 0; }
+    .letters button {
+      width: 48px; height: 48px; border: 1px solid #1b1c4a33; background: transparent;
+      font-family: Amiri, serif; font-size: 1.4rem; color: var(--ink); cursor: pointer;
+    }
+    .letters button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+    .hint { text-align:center; font-size:.85rem; opacity:.65; margin: 8px 16px 0; }
+    canvas { display:block; width: min(920px, 100%); height: min(62dvh, 520px); margin: 12px auto 0; touch-action: none; cursor: crosshair; }
+    .bar { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; padding: 16px; }
+    .bar button { min-height:44px; padding:0 18px; font: inherit; cursor:pointer; border:1px solid var(--ink); background:var(--ink); color:var(--paper); }
+    .bar button.ghost { background:transparent; color:var(--ink); }
+    #score { min-width: 8ch; text-align:center; font-variant-numeric: tabular-nums; }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <a class="back" href="../">الخزانة</a>
+  <header>
+    <h1>القلم</h1>
+    <div class="sub">Reed · nib angle</div>
+  </header>
+  <div class="letters" id="letters"></div>
+  <p class="hint">اتبع الأثر الشفاف. سُمك الخط يتبع زاوية القص، لا السرعة.</p>
+  <canvas id="c"></canvas>
+  <div class="bar">
+    <button type="button" id="clear" class="ghost">مسح</button>
+    <div id="score">—</div>
+    <button type="button" id="grade">تقييم</button>
+  </div>
+  <script>
+    const LETTERS = {
+      "ا": [[0.5,0.12],[0.5,0.88]],
+      "ب": [[0.18,0.58],[0.82,0.58],[0.78,0.7],[0.5,0.78],[0.5,0.9]],
+      "ج": [[0.72,0.22],[0.42,0.22],[0.28,0.38],[0.38,0.62],[0.7,0.7],[0.5,0.9]],
+      "س": [[0.18,0.48],[0.32,0.38],[0.42,0.5],[0.54,0.38],[0.64,0.5],[0.86,0.48],[0.8,0.7],[0.5,0.82]],
+      "ع": [[0.62,0.22],[0.42,0.22],[0.34,0.4],[0.52,0.52],[0.32,0.7],[0.48,0.86],[0.74,0.78]],
+      "ق": [[0.7,0.22],[0.48,0.18],[0.32,0.38],[0.48,0.58],[0.78,0.5],[0.7,0.78],[0.42,0.86],[0.5,0.08],[0.62,0.08]],
+      "م": [[0.55,0.2],[0.38,0.28],[0.42,0.5],[0.68,0.48],[0.6,0.78],[0.4,0.88]],
+      "و": [[0.58,0.28],[0.4,0.4],[0.5,0.58],[0.7,0.48],[0.62,0.78],[0.4,0.86]],
+      "ي": [[0.22,0.48],[0.7,0.42],[0.78,0.62],[0.5,0.8],[0.42,0.92],[0.58,0.92]],
+      "ل": [[0.38,0.14],[0.38,0.62],[0.55,0.8],[0.78,0.7]],
+    };
+    const names = Object.keys(LETTERS);
+    let current = "ا";
+    const nib = -Math.PI / 5;
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    let strokes = [];
+    let drawing = false;
+
+    const letterBox = document.getElementById("letters");
+    names.forEach((ch) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = ch;
+      b.setAttribute("aria-pressed", ch === current ? "true" : "false");
+      b.onclick = () => {
+        current = ch;
+        strokes = [];
+        [...letterBox.children].forEach((el) => el.setAttribute("aria-pressed", el.textContent === ch ? "true" : "false"));
+        paint();
+        document.getElementById("score").textContent = "—";
+      };
+      letterBox.appendChild(b);
+    });
+
+    function size() {
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { w, h };
+    }
+
+    function guidePts(w, h) {
+      return LETTERS[current].map(([x, y]) => [x * w, y * h]);
+    }
+
+    function paint() {
+      const { w, h } = size();
+      ctx.fillStyle = "#f7f1e4";
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "#1b1c4a22";
+      ctx.lineWidth = 14;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      const g = guidePts(w, h);
+      ctx.beginPath();
+      g.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+      ctx.stroke();
+      for (const s of strokes) drawStroke(s);
+    }
+
+    function drawStroke(pts) {
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+        const width = 3 + Math.abs(Math.sin(ang - nib)) * 16;
+        ctx.strokeStyle = "#1b1c4a";
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.stroke();
+      }
+    }
+
+    function pos(ev) {
+      const r = canvas.getBoundingClientRect();
+      const t = ev.touches ? ev.touches[0] : ev;
+      return [t.clientX - r.left, t.clientY - r.top];
+    }
+
+    canvas.addEventListener("pointerdown", (e) => {
+      drawing = true;
+      canvas.setPointerCapture(e.pointerId);
+      strokes.push([pos(e)]);
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!drawing) return;
+      strokes[strokes.length - 1].push(pos(e));
+      paint();
+    });
+    const end = () => { drawing = false; };
+    canvas.addEventListener("pointerup", end);
+    canvas.addEventListener("pointercancel", end);
+
+    document.getElementById("clear").onclick = () => { strokes = []; document.getElementById("score").textContent = "—"; paint(); };
+    document.getElementById("grade").onclick = () => {
+      const { w, h } = { w: canvas.clientWidth, h: canvas.clientHeight };
+      const g = guidePts(w, h);
+      const samples = strokes.flat();
+      if (samples.length < 8) { document.getElementById("score").textContent = " قليل"; return; }
+      let err = 0;
+      for (const p of samples) {
+        let best = 1e9;
+        for (let i = 1; i < g.length; i++) {
+          const ax = g[i-1][0], ay = g[i-1][1], bx = g[i][0], by = g[i][1];
+          const t = Math.max(0, Math.min(1, ((p[0]-ax)*(bx-ax)+(p[1]-ay)*(by-ay)) / ((bx-ax)**2+(by-ay)**2 || 1)));
+          const dx = p[0] - (ax + (bx-ax)*t), dy = p[1] - (ay + (by-ay)*t);
+          best = Math.min(best, Math.hypot(dx, dy));
+        }
+        err += best;
+      }
+      const avg = err / samples.length;
+      const score = Math.max(0, Math.round(100 - avg * 1.4));
+      document.getElementById("score").textContent = score + " / 100";
+    };
+    addEventListener("resize", paint);
+    paint();
+  </script>
+</body>
+</html>

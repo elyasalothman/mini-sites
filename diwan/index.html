@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ديوان — Diwan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f7f3ea;
+      --ink: #2a2218;
+      --rule: #d8c8a8;
+      --bind: #3a2a1c;
+      --stain: #5a3a28;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #e6dcc8; color: var(--ink); }
+    body {
+      font-family: Amiri, "Noto Naskh Arabic", serif;
+      min-height: 100dvh;
+    }
+    .vault {
+      position: fixed;
+      bottom: 10px;
+      inset-inline-start: 14px;
+      z-index: 30;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 0.85rem;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.45;
+    }
+    .vault:hover, .vault:focus-visible { opacity: 1; }
+    .book {
+      max-width: 720px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      background:
+        linear-gradient(to left, var(--bind) 0 14px, transparent 14px),
+        repeating-linear-gradient(180deg, transparent 0 31px, var(--rule) 31px 32px),
+        var(--paper);
+      padding: 2rem 1.9rem 5.5rem 1.3rem;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 8px 0 24px rgba(40, 24, 10, 0.12);
+    }
+    .stains { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+    .blot {
+      position: absolute;
+      width: 90px;
+      height: 70px;
+      background: radial-gradient(ellipse, rgba(70,40,20,0.22) 0%, rgba(70,40,20,0.08) 42%, transparent 70%);
+      transform: rotate(-12deg);
+    }
+    header.top {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 1.4rem;
+    }
+    header.top h1 { margin: 0; font-size: 1.2rem; font-weight: 400; }
+    header.top span { font-size: 0.9rem; opacity: 0.55; }
+    .riddle, .poem { position: relative; z-index: 2; }
+    .riddle h2, .poem h2 {
+      margin: 0 0 0.8rem;
+      font-size: clamp(1.6rem, 6vw, 2.1rem);
+      font-weight: 700;
+    }
+    .riddle .verse {
+      font-size: 1.25rem;
+      line-height: 2.05;
+      margin: 0 0 1.4rem;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-width: 28rem;
+    }
+    label { font-size: 1.05rem; }
+    input[type="text"] {
+      font-family: inherit;
+      font-size: 1.25rem;
+      min-height: 44px;
+      padding: 0.4rem 0.7rem;
+      border: none;
+      border-bottom: 1px solid var(--ink);
+      background: transparent;
+      color: var(--ink);
+    }
+    input:focus { outline: none; background: color-mix(in srgb, var(--ink) 4%, transparent); }
+    .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    button {
+      font-family: inherit;
+      font-size: 1.1rem;
+      min-height: 44px;
+      padding: 0 1.1rem;
+      cursor: pointer;
+      touch-action: manipulation;
+      background: var(--ink);
+      color: var(--paper);
+      border: none;
+    }
+    button.ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);
+    }
+    .msg { min-height: 1.6em; margin: 0.6rem 0 0; font-size: 1.05rem; }
+    .hint { color: #5a4030; font-style: italic; }
+    .spread {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.2rem;
+    }
+    @media (min-width: 700px) {
+      .spread { grid-template-columns: 1fr 11.5rem; }
+    }
+    .lines {
+      font-size: clamp(1.2rem, 3.4vw, 1.45rem);
+      line-height: 2.15;
+      margin: 0;
+    }
+    .lines p { margin: 0 0 0.15rem; }
+    aside.notes {
+      font-size: 0.92rem;
+      line-height: 1.7;
+      color: #4a3a28;
+      border-right: 1px solid var(--rule);
+      padding-right: 0.9rem;
+    }
+    aside.notes h3 {
+      margin: 0 0 0.5rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    aside.notes p { margin: 0 0 0.7rem; }
+    .colophon {
+      margin-top: 2rem;
+      font-size: 0.95rem;
+      opacity: 0.6;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .blot { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="vault" href="../">الخزانة</a>
+  <div class="book" id="book">
+    <div class="stains" id="stains" aria-hidden="true"></div>
+    <header class="top">
+      <h1>ديوان</h1>
+      <span>ورقة مقفلة</span>
+    </header>
+    <section class="riddle" id="lock">
+      <h2>لغز الورقة</h2>
+      <div class="verse">
+        يا صاحِ، ما اسمُ شيءٍ<br />
+        يَفْرِشُ البُيوتَ بِلا حَصيرٍ<br />
+        ويُطفئُ المصابيحَ بِلا نَفَسٍ<br />
+        ويُسلِّمُ على النجمِ ولا يَرُدُّ<br />
+        فإذا صاحَ الديكُ ولّى كأنّه لم يكن؟
+      </div>
+      <form id="form" autocomplete="off">
+        <label for="ans">الجواب</label>
+        <input id="ans" type="text" maxlength="40" enterkeyhint="done" />
+        <div class="row">
+          <button type="submit">افتح الديوان</button>
+        </div>
+        <p class="msg" id="msg"></p>
+      </form>
+    </section>
+    <section class="poem" id="poem" hidden>
+      <h2>عشاءٌ في بُرَيْدَة</h2>
+      <div class="spread">
+        <div class="lines">
+          <p>سَكَنَ الحَيُّ بعدَ أنْ أُقيمتِ العِشاء</p>
+          <p>وبَرَدَتْ سطوحُ الطينِ تحتَ سُهَيْل</p>
+          <p>لا صوتَ في السكّةِ إلا نبحةٌ واحدة</p>
+          <p>ثمّ عادَ الكلبُ إلى نومِه خلفَ السور</p>
+          <p>نخلةُ الدارِ تُحرّكُ جريدَها مرّةً</p>
+          <p>وتسكنُ كأنّها ما مالتْ</p>
+          <p>امرأةٌ تُطفئُ الفتيلَ من غيرِ عجلة</p>
+          <p>والبئرُ في الحوشِ مُغمضةٌ كجَفن</p>
+        </div>
+        <aside class="notes">
+          <h3>حاشية</h3>
+          <p>سُهَيْل: نجمٌ يُرى في أواخر القيظ على أفق نجد، يُستدلّ به على ميل الهواء.</p>
+          <p>الحَوْش: صحن الدار النجديّ، والبئر فيه كانت شرب البيت قبل المواسير.</p>
+          <p>كُتبت القصيدة على سكون بلدةٍ بعد العشاء، لا على البدو ولا على الآبار النفطية.</p>
+        </aside>
+      </div>
+      <p class="colophon">من أوراق هذا الديوان — لم تُنشر من قبل.</p>
+    </section>
+  </div>
+  <script>
+    (function () {
+      const KEY = "diwan.unlocked.v1";
+      const answers = ["الليل", "ليل", "اليل", "اللَيل", "اللّيل", "الدجى", "الظلام", "الليلُ"];
+      const form = document.getElementById("form");
+      const ans = document.getElementById("ans");
+      const msg = document.getElementById("msg");
+      const lock = document.getElementById("lock");
+      const poem = document.getElementById("poem");
+      const stains = document.getElementById("stains");
+      const topSpan = document.querySelector("header.top span");
+      let misses = 0;
+
+      function norm(s) {
+        return s
+          .trim()
+          .replace(/[ًٌٍَُِّْـ]/g, "")
+          .replace(/[أإآ]/g, "ا")
+          .replace(/ة/g, "ه")
+          .replace(/\s+/g, "");
+      }
+      const accepted = answers.map(norm);
+
+      function unlock() {
+        lock.hidden = true;
+        poem.hidden = false;
+        topSpan.textContent = "الورقة مفتوحة";
+        try { sessionStorage.setItem(KEY, "1"); } catch (err) {}
+      }
+
+      function stain() {
+        const b = document.createElement("div");
+        b.className = "blot";
+        b.style.top = 12 + Math.random() * 70 + "%";
+        b.style.left = 8 + Math.random() * 70 + "%";
+        b.style.width = 70 + Math.random() * 80 + "px";
+        b.style.height = 50 + Math.random() * 70 + "px";
+        b.style.opacity = String(0.55 + Math.random() * 0.4);
+        stains.appendChild(b);
+      }
+
+      try {
+        if (sessionStorage.getItem(KEY) === "1") unlock();
+      } catch (err) {}
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const v = norm(ans.value);
+        if (!v) {
+          msg.textContent = "اكتب جوابًا.";
+          return;
+        }
+        if (accepted.indexOf(v) !== -1) {
+          msg.textContent = "";
+          unlock();
+          return;
+        }
+        misses += 1;
+        stain();
+        if (misses === 1) msg.textContent = "الصفحة تشرب الحبر. أعد النظر.";
+        else if (misses === 2) {
+          msg.className = "msg hint";
+          msg.textContent = "تلميح: يأتي بعد المغرب، ويذهب إذا تكلّم الصبح.";
+        } else {
+          msg.className = "msg hint";
+          msg.textContent = "تلميح: يغشى النهار، واسمه على ثلاثة أحرف إذا حذفت أداة التعريف.";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

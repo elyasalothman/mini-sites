@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lamp Morse — مصباح</title>
+  <meta name="description" content="Type a short message. A row of sodium streetlights blinks it in ITU Morse across the night city.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&family=Oswald:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --night: #14120e;
+      --sodium: #e09020;
+      --glow: #f0c060;
+      --asphalt: #1c1a16;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; background: var(--night); color: #e8d8b0; }
+    body {
+      font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+    .sky {
+      flex: 1;
+      position: relative;
+      min-height: 280px;
+      background:
+        radial-gradient(ellipse at 50% 100%, #2a2214 0%, transparent 50%),
+        linear-gradient(#0c0c12, #14120e 55%, #1a1812);
+      overflow: hidden;
+    }
+    .sign {
+      position: absolute;
+      top: max(12px, env(safe-area-inset-top));
+      left: 16px;
+      z-index: 2;
+    }
+    .sign h1 {
+      font-family: Oswald, sans-serif;
+      font-size: clamp(22px, 6vw, 34px);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--sodium);
+      line-height: 1;
+    }
+    .sign span {
+      display: block;
+      font-size: 12px;
+      letter-spacing: 0.28em;
+      color: #8a7050;
+      margin-top: 4px;
+    }
+    .vault {
+      position: absolute;
+      top: max(10px, env(safe-area-inset-top));
+      right: 14px;
+      z-index: 3;
+      font-size: 12px;
+      color: #6a5a40;
+      text-decoration: none;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+    }
+    .lamps {
+      position: absolute;
+      left: 0; right: 0;
+      bottom: 78px;
+      display: flex;
+      justify-content: space-evenly;
+      align-items: flex-end;
+      padding: 0 6px;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .lamp {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 18%;
+      max-width: 72px;
+    }
+    .head {
+      width: 36px;
+      height: 14px;
+      background: #2a281e;
+      border-radius: 4px 4px 10px 10px;
+      position: relative;
+      z-index: 1;
+    }
+    .bulb {
+      position: absolute;
+      left: 6px; right: 6px; top: 6px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3a3428;
+    }
+    .lamp.on .bulb {
+      background: var(--glow);
+      box-shadow: 0 8px 22px 8px rgba(224,144,32,0.55);
+    }
+    .pole {
+      width: 3px;
+      height: 90px;
+      background: #2a281c;
+    }
+    .halo {
+      position: absolute;
+      bottom: 70px;
+      width: 80px;
+      height: 80px;
+      margin-left: -40px;
+      left: 50%;
+      background: radial-gradient(circle, rgba(224,144,32,0.35), transparent 70%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .lamp.on .halo { opacity: 1; }
+    .city {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 88px;
+      z-index: 1;
+    }
+    .city svg { display: block; width: 100%; height: 100%; }
+    .road {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 28px;
+      background: #1a1814;
+      z-index: 1;
+      box-shadow: inset 0 8px 12px rgba(0,0,0,0.4);
+    }
+    .road::after {
+      content: "";
+      position: absolute;
+      left: 8%; right: 8%;
+      top: 12px;
+      height: 2px;
+      background: repeating-linear-gradient(90deg, #c4a05a 0 16px, transparent 16px 28px);
+      opacity: 0.35;
+    }
+    .code {
+      position: absolute;
+      left: 0; right: 0;
+      bottom: 36px;
+      text-align: center;
+      z-index: 2;
+      font-family: Oswald, sans-serif;
+      letter-spacing: 0.28em;
+      font-size: 18px;
+      color: var(--sodium);
+      min-height: 24px;
+      text-shadow: 0 0 10px rgba(224,144,32,0.4);
+    }
+    .dock {
+      background: #1c1a16;
+      padding: 14px 14px max(16px, env(safe-area-inset-bottom));
+      border-top: 1px solid #2a261c;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      color: #8a7a60;
+      margin-bottom: 6px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 52px;
+      resize: vertical;
+      background: #12100c;
+      color: #f0e0c0;
+      border: 1px solid #3a3428;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+    textarea:focus { outline: 2px solid var(--sodium); outline-offset: 1px; }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .row button {
+      min-height: 44px;
+      min-width: 96px;
+      padding: 8px 16px;
+      font-family: Oswald, sans-serif;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      border: 1px solid var(--sodium);
+      background: transparent;
+      color: var(--sodium);
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .row button.primary { background: var(--sodium); color: #14120e; }
+    .row button:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+    .speed {
+      flex: 1;
+      min-width: 140px;
+    }
+    .speed input { width: 100%; height: 44px; accent-color: var(--sodium); }
+    .meta { font-size: 12px; color: #7a6a50; margin-top: 6px; }
+    @media (prefers-reduced-motion: reduce) {
+      .lamp.on .bulb { box-shadow: 0 0 8px rgba(224,144,32,0.4); }
+      .lamp.on .halo { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sky">
+    <div class="sign"><h1>Lamp Morse<span>مصباح · ITU</span></h1></div>
+    <a class="vault" href="../">الخزانة</a>
+    <div class="lamps" id="lamps"></div>
+    <div class="code" id="codeVis"></div>
+    <div class="city" aria-hidden="true">
+      <svg viewBox="0 0 400 88" preserveAspectRatio="none">
+        <rect x="0" y="50" width="40" height="38" fill="#1a1814"/>
+        <rect x="28" y="36" width="50" height="52" fill="#161410"/>
+        <rect x="70" y="44" width="36" height="44" fill="#1c1a14"/>
+        <rect x="108" y="22" width="28" height="66" fill="#12100c"/>
+        <polygon points="122,8 108,22 136,22" fill="#12100c"/>
+        <rect x="140" y="40" width="70" height="48" fill="#181610"/>
+        <rect x="214" y="30" width="44" height="58" fill="#14120e"/>
+        <rect x="258" y="48" width="55" height="40" fill="#1a1812"/>
+        <rect x="312" y="26" width="38" height="62" fill="#12100c"/>
+        <rect x="350" y="42" width="50" height="46" fill="#181612"/>
+        <g fill="#3a3020">
+          <rect x="36" y="44" width="4" height="5"/>
+          <rect x="48" y="44" width="4" height="5"/>
+          <rect x="36" y="56" width="4" height="5"/>
+          <rect x="118" y="36" width="3" height="4"/>
+          <rect x="118" y="46" width="3" height="4"/>
+          <rect x="154" y="50" width="5" height="6"/>
+          <rect x="168" y="50" width="5" height="6"/>
+          <rect x="226" y="40" width="4" height="5"/>
+          <rect x="322" y="40" width="4" height="6"/>
+        </g>
+      </svg>
+    </div>
+    <div class="road"></div>
+  </div>
+  <div class="dock">
+    <label for="msg">Message · الرسالة</label>
+    <textarea id="msg" maxlength="80" placeholder="HELLO or مرحبا">SOS</textarea>
+    <div class="row">
+      <button type="button" class="primary" id="play">Play</button>
+      <button type="button" id="pause">Pause</button>
+      <div class="speed">
+        <input id="wpm" type="range" min="5" max="25" value="12" aria-label="Speed WPM">
+      </div>
+    </div>
+    <p class="meta" id="meta">12 WPM · lamps dark</p>
+  </div>
+  <script>
+(function () {
+  "use strict";
+  var MORSE = {
+    A: ".-", B: "-...", C: "-.-.", D: "-..", E: ".", F: "..-.", G: "--.",
+    H: "....", I: "..", J: ".---", K: "-.-", L: ".-..", M: "--", N: "-.",
+    O: "---", P: ".--.", Q: "--.-", R: ".-.", S: "...", T: "-", U: "..-",
+    V: "...-", W: ".--", X: "-..-", Y: "-.--", Z: "--..",
+    "0": "-----", "1": ".----", "2": "..---", "3": "...--", "4": "....-",
+    "5": ".....", "6": "-....", "7": "--...", "8": "---..", "9": "----.",
+    ".": ".-.-.-", ",": "--..--", "?": "..--..", "/": "-..-.",
+    "-": "-....-", "'": ".----.", "(": "-.--.", ")": "-.--.-"
+  };
+  var AR = {
+    "ا": "A", "أ": "A", "إ": "I", "آ": "A", "ء": "A", "ؤ": "W", "ئ": "Y", "ى": "A", "ة": "H",
+    "ب": "B", "ت": "T", "ث": "TH", "ج": "J", "ح": "H", "خ": "KH", "د": "D", "ذ": "DH",
+    "ر": "R", "ز": "Z", "س": "S", "ش": "SH", "ص": "S", "ض": "D", "ط": "T", "ظ": "Z",
+    "ع": "A", "غ": "GH", "ف": "F", "ق": "Q", "ك": "K", "ل": "L", "م": "M", "ن": "N",
+    "ه": "H", "و": "W", "ي": "Y", "ﻻ": "LA", "لا": "LA"
+  };
+
+  var lampsEl = document.getElementById("lamps");
+  var codeVis = document.getElementById("codeVis");
+  var msgEl = document.getElementById("msg");
+  var playBtn = document.getElementById("play");
+  var pauseBtn = document.getElementById("pause");
+  var wpmEl = document.getElementById("wpm");
+  var meta = document.getElementById("meta");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var N = 5;
+  var lamps = [];
+  for (var i = 0; i < N; i++) {
+    var el = document.createElement("div");
+    el.className = "lamp";
+    el.innerHTML = "<div class='halo'></div><div class='head'><div class='bulb'></div></div><div class='pole'></div>";
+    lampsEl.appendChild(el);
+    lamps.push(el);
+  }
+
+  var timeline = [];
+  var tPlay = 0;
+  var playing = false;
+  var paused = false;
+  var last = 0;
+  var audio = null;
+  var lit = false;
+
+  function unlock() {
+    if (audio) {
+      if (audio.ctx.state === "suspended") audio.ctx.resume();
+      return;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    var ctx = new AC();
+    var g = ctx.createGain();
+    g.gain.value = 0;
+    var o = ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.value = 620;
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start();
+    audio = { ctx: ctx, g: g, o: o };
+  }
+
+  function translit(ch) {
+    if (AR[ch]) return AR[ch];
+    return ch;
+  }
+  function toLatin(s) {
+    var out = "";
+    for (var i = 0; i < s.length; i++) {
+      var c = s[i];
+      var code = c.charCodeAt(0);
+      if (code >= 0x064B && code <= 0x065F) continue;
+      if (c === "\u0640") continue;
+      out += translit(c);
+    }
+    return out;
+  }
+
+  function build(text) {
+    var latin = toLatin(text).toUpperCase();
+    var seq = [];
+    var vis = [];
+    for (var i = 0; i < latin.length; i++) {
+      var ch = latin[i];
+      if (ch === " " || ch === "\n") {
+        seq.push({ on: false, u: 4, mark: " / " });
+        vis.push(" / ");
+        continue;
+      }
+      var code = MORSE[ch];
+      if (!code) continue;
+      for (var j = 0; j < code.length; j++) {
+        if (code[j] === ".") { seq.push({ on: true, u: 1, mark: "·" }); vis.push("·"); }
+        else { seq.push({ on: true, u: 3, mark: "—" }); vis.push("—"); }
+        seq.push({ on: false, u: 1, mark: "" });
+      }
+      seq.push({ on: false, u: 2, mark: " " });
+      vis.push(" ");
+    }
+    return { seq: seq, vis: vis.join("").replace(/\s+/g, " ").trim() };
+  }
+
+  function unitMs() {
+    return 1200 / Number(wpmEl.value);
+  }
+
+  function setLamps(on) {
+    lit = on;
+    for (var i = 0; i < lamps.length; i++) {
+      if (on) lamps[i].classList.add("on");
+      else lamps[i].classList.remove("on");
+    }
+    if (audio) {
+      var t = audio.ctx.currentTime;
+      audio.g.gain.cancelScheduledValues(t);
+      audio.g.gain.setTargetAtTime(on ? 0.09 : 0, t, 0.012);
+    }
+  }
+
+  function start() {
+    unlock();
+    var built = build(msgEl.value || "SOS");
+    timeline = built.seq;
+    tPlay = 0;
+    playing = true;
+    paused = false;
+    playBtn.textContent = "Restart";
+    meta.textContent = wpmEl.value + " WPM · " + (built.vis || "empty");
+    codeVis.textContent = "";
+  }
+
+  function loop(now) {
+    if (!last) last = now;
+    var dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.1) dt = 0.1;
+    if (playing && !paused && timeline.length) {
+      tPlay += dt * 1000;
+      var u = unitMs();
+      var acc = 0;
+      var cur = null;
+      var marks = [];
+      for (var i = 0; i < timeline.length; i++) {
+        var step = timeline[i];
+        var dur = step.u * u;
+        if (tPlay < acc + dur) { cur = step; break; }
+        acc += dur;
+        if (step.mark) marks.push(step.mark);
+      }
+      if (!cur) {
+        playing = false;
+        setLamps(false);
+        codeVis.textContent = marks.join("");
+        meta.textContent = wpmEl.value + " WPM · done";
+        playBtn.textContent = "Play";
+      } else {
+        setLamps(!!cur.on);
+        if (cur.mark) {
+          var shown = marks.join("") + cur.mark;
+          codeVis.textContent = shown.slice(-22);
+        }
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+
+  playBtn.addEventListener("click", start);
+  pauseBtn.addEventListener("click", function () {
+    if (!playing) return;
+    paused = !paused;
+    pauseBtn.textContent = paused ? "Resume" : "Pause";
+    if (paused) setLamps(false);
+  });
+  wpmEl.addEventListener("input", function () {
+    meta.textContent = wpmEl.value + " WPM";
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && audio && audio.ctx.state === "suspended") audio.ctx.resume();
+  });
+
+  requestAnimationFrame(loop);
+})();
+  </script>
+</body>
+</html>

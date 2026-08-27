@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Afterimage — أثر</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,500;1,6..72,300&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f4f0e8;
+      --graphite: #2a2a28;
+      --faint: #8a8680;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--paper); color: var(--graphite); }
+    body {
+      font-family: Newsreader, "Iowan Old Style", Georgia, serif;
+      min-height: 100dvh;
+    }
+    .vault {
+      position: fixed;
+      bottom: 10px;
+      left: 14px;
+      z-index: 20;
+      color: var(--faint);
+      text-decoration: none;
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.55;
+    }
+    .vault:hover, .vault:focus-visible { opacity: 1; color: var(--graphite); }
+    .frame {
+      max-width: 720px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      padding: 1.4rem 1.15rem 6rem;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--graphite) 18%, transparent);
+      padding-bottom: 0.7rem;
+      margin-bottom: 1.1rem;
+    }
+    header h1 {
+      margin: 0;
+      font-weight: 500;
+      font-size: 1.35rem;
+      letter-spacing: 0.08em;
+    }
+    header p {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--faint);
+      font-style: italic;
+    }
+    .ink {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: 1.1rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+    .well {
+      flex: 1;
+      height: 8px;
+      background: color-mix(in srgb, var(--graphite) 10%, transparent);
+      position: relative;
+      overflow: hidden;
+    }
+    .well > i {
+      display: block;
+      height: 100%;
+      width: 100%;
+      background: var(--graphite);
+      transform-origin: left center;
+      transform: scaleX(1);
+    }
+    .sheet {
+      flex: 1;
+      position: relative;
+      min-height: 50dvh;
+      cursor: text;
+    }
+    .words {
+      font-size: clamp(1.55rem, 4.6vw, 2.15rem);
+      font-weight: 300;
+      line-height: 1.55;
+      letter-spacing: 0.01em;
+    }
+    .word {
+      display: inline;
+      white-space: pre-wrap;
+    }
+    .wet { opacity: 1; }
+    .caret {
+      display: inline-block;
+      width: 1px;
+      height: 1.05em;
+      background: var(--graphite);
+      vertical-align: -0.12em;
+      margin-inline-start: 1px;
+      animation: blink 1.1s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    .ghost {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      resize: none;
+      font-size: 16px;
+      background: transparent;
+      color: transparent;
+      caret-color: transparent;
+    }
+    .note {
+      margin-top: auto;
+      padding-top: 1.4rem;
+      font-size: 0.92rem;
+      color: var(--faint);
+      font-style: italic;
+      line-height: 1.5;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .caret { animation: none; }
+      .word { filter: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="vault" href="../">الخزانة</a>
+  <div class="frame">
+    <header>
+      <h1>Afterimage</h1>
+      <p>A page that keeps nothing</p>
+    </header>
+    <div class="ink" aria-live="polite">
+      <span>Ink remaining</span>
+      <div class="well" id="well"><i id="level"></i></div>
+      <span id="pct">100%</span>
+    </div>
+    <div class="sheet" id="sheet">
+      <div class="words" id="words"><span class="caret" id="caret"></span></div>
+      <textarea class="ghost" id="ghost" autocomplete="off" autocapitalize="sentences" aria-label="Ephemeral writing"></textarea>
+    </div>
+    <p class="note">Each word lives a few seconds, then the paper forgets. Older ink fades first. Nothing is stored.</p>
+  </div>
+  <script>
+    (function () {
+      const LIFE = 14000;
+      const FADE_AFTER = 5000;
+      const wordsEl = document.getElementById("words");
+      const caret = document.getElementById("caret");
+      const ghost = document.getElementById("ghost");
+      const sheet = document.getElementById("sheet");
+      const level = document.getElementById("level");
+      const pctEl = document.getElementById("pct");
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const tokens = [];
+      let wet = "";
+
+      function commit(word, extra) {
+        const text = (word || "") + (extra || " ");
+        if (!text || text === " ") return;
+        const span = document.createElement("span");
+        span.className = "word";
+        span.textContent = text;
+        wordsEl.insertBefore(span, caret);
+        tokens.push({ el: span, born: performance.now() });
+      }
+
+      function renderWet() {
+        let w = document.getElementById("wet");
+        if (!wet) {
+          if (w) w.remove();
+          return;
+        }
+        if (!w) {
+          w = document.createElement("span");
+          w.id = "wet";
+          w.className = "word wet";
+          wordsEl.insertBefore(w, caret);
+        }
+        w.textContent = wet;
+      }
+
+      function ink() {
+        const now = performance.now();
+        if (!tokens.length && !wet) {
+          level.style.transform = "scaleX(1)";
+          pctEl.textContent = "100%";
+          return;
+        }
+        let sum = wet ? 1 : 0;
+        let n = wet ? 1 : 0;
+        for (const tok of tokens) {
+          const age = now - tok.born;
+          const left = Math.max(0, 1 - age / LIFE);
+          sum += left;
+          n++;
+        }
+        const v = n ? sum / n : 1;
+        level.style.transform = "scaleX(" + v.toFixed(3) + ")";
+        pctEl.textContent = Math.round(v * 100) + "%";
+      }
+
+      function tick(now) {
+        for (let i = tokens.length - 1; i >= 0; i--) {
+          const tok = tokens[i];
+          const age = now - tok.born;
+          if (age >= LIFE) {
+            tok.el.remove();
+            tokens.splice(i, 1);
+            continue;
+          }
+          if (age > FADE_AFTER) {
+            const k = 1 - (age - FADE_AFTER) / (LIFE - FADE_AFTER);
+            tok.el.style.opacity = String(Math.max(0, k));
+            if (!reduced) tok.el.style.filter = "blur(" + ((1 - k) * 3.2).toFixed(2) + "px)";
+          } else {
+            tok.el.style.opacity = "1";
+            tok.el.style.filter = "none";
+          }
+        }
+        ink();
+        requestAnimationFrame(tick);
+      }
+
+      function onInput() {
+        const v = ghost.value;
+        const parts = v.split(/(\s+)/);
+        if (parts.length === 1) {
+          wet = v;
+          renderWet();
+          return;
+        }
+        let acc = "";
+        for (let i = 0; i < parts.length; i++) {
+          const p = parts[i];
+          if (/^\s+$/.test(p)) {
+            if (acc) commit(acc, p);
+            acc = "";
+          } else if (i === parts.length - 1) {
+            acc = p;
+          } else {
+            acc += p;
+          }
+        }
+        wet = acc;
+        ghost.value = wet;
+        renderWet();
+      }
+
+      ghost.addEventListener("input", onInput);
+      ghost.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (wet) commit(wet, "\n");
+          else commit("", "\n");
+          wet = "";
+          ghost.value = "";
+          renderWet();
+        } else if (e.key === "Backspace" && !wet && !ghost.value && tokens.length) {
+          e.preventDefault();
+          const last = tokens[tokens.length - 1];
+          last.el.remove();
+          tokens.pop();
+        }
+      });
+      sheet.addEventListener("click", function () { ghost.focus(); });
+      document.addEventListener("keydown", function (e) {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (document.activeElement !== ghost) ghost.focus();
+      });
+      ghost.focus();
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>

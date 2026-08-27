@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>لؤلؤ — Pearl</title>
+  <meta name="description" content="احبس النفس، انزل إلى القاع، اجمع اللؤلؤ، واصعد قبل أن يظلم البحر.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --gulf: #0e2a32;
+      --pearl: #d8f0f4;
+      --wood: #6a4a2e;
+      --ink: #d8f0f4;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--gulf); color: var(--ink); }
+    body {
+      font-family: Cairo, sans-serif;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    canvas { display: block; width: 100%; height: 100%; cursor: pointer; }
+    .hud {
+      position: absolute;
+      top: max(12px, env(safe-area-inset-top));
+      right: 16px;
+      left: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      z-index: 2;
+    }
+    h1 {
+      font-family: Fraunces, serif;
+      font-size: clamp(26px, 7vw, 40px);
+      font-weight: 700;
+      line-height: 1;
+      color: var(--pearl);
+    }
+    h1 small {
+      display: block;
+      font-family: Cairo, sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: #7ab8c4;
+      margin-top: 4px;
+    }
+    .stats { text-align: left; font-size: 14px; color: var(--pearl); }
+    .stats b { font-family: Fraunces, serif; font-size: 22px; display: block; }
+    .breath-wrap {
+      position: absolute;
+      top: max(86px, calc(env(safe-area-inset-top) + 74px));
+      left: 16px;
+      width: 18px;
+      height: 120px;
+      border: 1px solid #4a8894;
+      background: rgba(14,42,50,0.6);
+      z-index: 2;
+      pointer-events: none;
+    }
+    .breath-fill {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: #7ec8d4;
+      height: 100%;
+      transform-origin: bottom;
+    }
+    .cue {
+      position: absolute;
+      left: 50%;
+      bottom: max(24px, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      z-index: 2;
+      text-align: center;
+      pointer-events: none;
+      font-size: 14px;
+      color: #b8dce4;
+      width: 90%;
+      max-width: 340px;
+    }
+    .vault {
+      position: absolute;
+      top: max(12px, env(safe-area-inset-top));
+      left: 16px;
+      z-index: 3;
+      font-size: 12px;
+      color: #6a9aa4;
+      text-decoration: none;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      pointer-events: auto;
+    }
+    .again {
+      display: none;
+      position: absolute;
+      left: 50%;
+      top: 54%;
+      transform: translate(-50%, -50%);
+      z-index: 3;
+      min-height: 44px;
+      min-width: 160px;
+      padding: 10px 22px;
+      border: 1px solid var(--pearl);
+      background: rgba(14,42,50,0.85);
+      color: var(--pearl);
+      font-family: inherit;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .breath-fill { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c" aria-label="غوصة لؤلؤ"></canvas>
+  <div class="hud">
+    <h1>لؤلؤ<small>PEARL · حبس النفس</small></h1>
+    <div class="stats">
+      <b id="carried">0</b> هذه الغوصة
+      <b id="total" style="margin-top:8px">0</b> المجموع · <span id="dives">1</span>/3
+    </div>
+  </div>
+  <div class="breath-wrap" aria-label="النَفَس"><div class="breath-fill" id="breathFill"></div></div>
+  <p class="cue" id="cue">اضغط مطوّلًا للغوص. أفلت للصعود. اللؤلؤ في المحار.</p>
+  <button class="again" id="again" type="button">غوص ثلاث جديد</button>
+  <a class="vault" href="../">الخزانة</a>
+  <script>
+(function () {
+  "use strict";
+  var canvas = document.getElementById("c");
+  var ctx = canvas.getContext("2d");
+  var breathFill = document.getElementById("breathFill");
+  var carriedEl = document.getElementById("carried");
+  var totalEl = document.getElementById("total");
+  var divesEl = document.getElementById("dives");
+  var cue = document.getElementById("cue");
+  var again = document.getElementById("again");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var W = 390, H = 700, dpr = 1;
+  var surfaceY = 78, bedY = 0;
+  var holding = false;
+  var diverY = 0, vy = 0;
+  var breath = 1;
+  var carried = 0, banked = 0, diveN = 1;
+  var pearls = [];
+  var oysters = [];
+  var bubbles = [];
+  var blackout = 0;
+  var over = false;
+  var t = 0;
+  var last = 0;
+  var boatBob = 0;
+  var audio = null;
+  var submerged = false;
+
+  function unlockAudio() {
+    if (audio) {
+      if (audio.ctx.state === "suspended") audio.ctx.resume();
+      return;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = { ctx: new AC() };
+  }
+  function drip(f, d, v) {
+    if (!audio) return;
+    var tm = audio.ctx.currentTime;
+    var o = audio.ctx.createOscillator();
+    var g = audio.ctx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(f, tm);
+    o.frequency.exponentialRampToValueAtTime(f * 0.5, tm + d);
+    g.gain.setValueAtTime(0.0001, tm);
+    g.gain.exponentialRampToValueAtTime(v || 0.12, tm + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, tm + d);
+    o.connect(g); g.connect(audio.ctx.destination);
+    o.start(tm); o.stop(tm + d + 0.02);
+  }
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    surfaceY = Math.max(72, H * 0.14);
+    bedY = H - 48;
+    if (!diverY) diverY = surfaceY + 18;
+  }
+
+  function spawnDiveLoot() {
+    pearls = [];
+    oysters = [];
+    var n = 4 + Math.floor(Math.random() * 3);
+    for (var i = 0; i < n; i++) {
+      var mid = Math.random() < 0.4;
+      oysters.push({
+        x: 40 + Math.random() * (W - 80),
+        y: mid ? (surfaceY + 80 + Math.random() * (bedY - surfaceY - 140)) : (bedY - 18 - Math.random() * 30),
+        open: Math.random() < 0.5,
+        phase: Math.random() * Math.PI * 2,
+        period: 1.6 + Math.random() * 1.4,
+        pearl: true,
+        taken: false
+      });
+    }
+  }
+
+  function resetAll() {
+    carried = 0; banked = 0; diveN = 1; over = false; blackout = 0;
+    breath = 1; diverY = surfaceY + 18; vy = 0; holding = false;
+    submerged = false;
+    spawnDiveLoot();
+    again.style.display = "none";
+    cue.textContent = "اضغط مطوّلًا للغوص. أفلت للصعود. اللؤلؤ في المحار.";
+    sync();
+  }
+
+  function sync() {
+    carriedEl.textContent = String(carried);
+    totalEl.textContent = String(banked);
+    divesEl.textContent = String(Math.min(diveN, 3));
+    breathFill.style.height = Math.max(0, breath * 100) + "%";
+    var col = breath < 0.22 ? "#c07060" : "#7ec8d4";
+    breathFill.style.background = col;
+  }
+
+  function nextDive() {
+    banked += carried;
+    carried = 0;
+    diveN += 1;
+    submerged = false;
+    holding = false;
+    if (diveN > 3) {
+      over = true;
+      cue.textContent = "ثلاث غوصات. اللؤلؤ: " + banked + ".";
+      again.style.display = "block";
+      sync();
+      return;
+    }
+    breath = 1;
+    diverY = surfaceY + 18;
+    vy = 0;
+    holding = false;
+    submerged = false;
+    spawnDiveLoot();
+    cue.textContent = "غوصة " + diveN + " من 3. الرئة ممتلئة.";
+    sync();
+  }
+
+  function blackoutDive() {
+    blackout = reduce ? 0.6 : 1.1;
+    carried = 0;
+    holding = false;
+    cue.textContent = "انقطع النفس. اللؤلؤ سقط.";
+    drip(90, 0.4, 0.2);
+    sync();
+  }
+
+  function emitBubble(x, y, n) {
+    var c = reduce ? Math.min(2, n) : n;
+    for (var i = 0; i < c; i++) {
+      bubbles.push({
+        x: x + (Math.random() - 0.5) * 10,
+        y: y,
+        r: 1.5 + Math.random() * 3.5,
+        vy: -(20 + Math.random() * 40),
+        life: 0.8 + Math.random() * 1.2,
+        age: 0
+      });
+    }
+  }
+
+  function update(dt) {
+    t += dt;
+    boatBob = Math.sin(t * 1.3) * 3;
+    if (over) return;
+    if (blackout > 0) {
+      blackout -= dt;
+      diverY += (surfaceY + 18 - diverY) * Math.min(1, 2.4 * dt);
+      if (blackout <= 0) nextDive();
+      return;
+    }
+    var depth = Math.max(0, (diverY - surfaceY) / Math.max(1, bedY - surfaceY));
+    if (holding) {
+      vy += 420 * dt;
+      if (Math.random() < (reduce ? 0.08 : 0.22)) emitBubble(W * 0.5, diverY - 8, 1);
+    } else {
+      vy -= 520 * dt;
+    }
+    vy = Math.max(-260, Math.min(240, vy));
+    diverY += vy * dt;
+    if (diverY < surfaceY + 16) {
+      diverY = surfaceY + 16;
+      vy = Math.min(0, vy);
+    }
+    if (diverY > bedY - 14) {
+      diverY = bedY - 14;
+      vy = Math.min(vy, 0);
+    }
+
+    var drain = 0.055 + 0.16 * depth;
+    if (depth > 0.06) submerged = true;
+    if (diverY > surfaceY + 20) {
+      breath -= drain * dt;
+    }
+    if (breath <= 0 && diverY > surfaceY + 24) {
+      breath = 0;
+      blackoutDive();
+      return;
+    }
+
+    oysters.forEach(function (o) {
+      o.phase += dt;
+      o.open = Math.sin(o.phase * (Math.PI * 2 / o.period)) > 0;
+      if (!o.taken && o.pearl && o.open) {
+        var dx = W * 0.5 - o.x, dy = diverY - o.y;
+        if (dx * dx + dy * dy < 22 * 22) {
+          o.taken = true;
+          o.pearl = false;
+          carried += 1;
+          drip(740 + Math.random() * 80, 0.12, 0.16);
+          emitBubble(o.x, o.y, 6);
+          sync();
+        }
+      }
+    });
+
+    for (var i = bubbles.length - 1; i >= 0; i--) {
+      var b = bubbles[i];
+      b.age += dt;
+      b.y += b.vy * dt;
+      b.x += Math.sin((b.age + b.r) * 4) * 12 * dt;
+      if (b.age > b.life || b.y < surfaceY) bubbles.splice(i, 1);
+    }
+
+    if (!holding && diverY <= surfaceY + 18.5 && submerged && breath > 0) {
+      cue.textContent = "صعدت بـ " + carried + " لؤلؤة.";
+      nextDive();
+    }
+    sync();
+  }
+
+  function drawBoat() {
+    var by = surfaceY - 8 + boatBob;
+    ctx.save();
+    ctx.translate(W * 0.5, by);
+    ctx.fillStyle = "#6a4a2e";
+    ctx.beginPath();
+    ctx.moveTo(-52, 6);
+    ctx.quadraticCurveTo(0, 28, 52, 6);
+    ctx.lineTo(46, -6);
+    ctx.lineTo(-46, -6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#8a6238";
+    ctx.fillRect(-40, -10, 80, 6);
+    ctx.fillStyle = "#d8f0f4";
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(-18, -8, 10, 3);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  function draw() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#1a5060");
+    g.addColorStop(0.12, "#0e2a32");
+    g.addColorStop(0.55, "#0a2430");
+    g.addColorStop(1, "#06141a");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = "#7eb8c8";
+    ctx.beginPath();
+    ctx.rect(0, 0, W, surfaceY);
+    ctx.fill();
+    var sky = ctx.createLinearGradient(0, 0, 0, surfaceY);
+    sky.addColorStop(0, "#8ec4d0");
+    sky.addColorStop(1, "#3a7080");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, surfaceY);
+
+    ctx.fillStyle = "#d8c070";
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    ctx.arc(W * 0.78, 28, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    drawBoat();
+
+    ctx.strokeStyle = "rgba(216,240,244,0.25)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (var x = 0; x <= W; x += 8) {
+      var y = surfaceY + Math.sin(x * 0.04 + t * 1.6) * 2.5;
+      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = "#1a1810";
+    ctx.beginPath();
+    ctx.moveTo(0, bedY + 8);
+    for (var sx = 0; sx <= W; sx += 16) {
+      ctx.lineTo(sx, bedY + 6 + Math.sin(sx * 0.05) * 5);
+    }
+    ctx.lineTo(W, H);
+    ctx.lineTo(0, H);
+    ctx.fill();
+    ctx.fillStyle = "#2a2418";
+    ctx.fillRect(0, bedY, W, 10);
+
+    oysters.forEach(function (o) {
+      ctx.save();
+      ctx.translate(o.x, o.y);
+      ctx.fillStyle = "#4a5a50";
+      ctx.beginPath();
+      ctx.ellipse(0, 4, 12, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#8aa898";
+      var gap = o.open ? 8 : 1;
+      ctx.beginPath();
+      ctx.ellipse(0, 4 - gap, 11, 5, -0.15, Math.PI, Math.PI * 2);
+      ctx.fill();
+      if (o.pearl && !o.taken && o.open) {
+        ctx.fillStyle = "#d8f0f4";
+        ctx.beginPath();
+        ctx.arc(0, 3, 3.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+
+    bubbles.forEach(function (b) {
+      ctx.strokeStyle = "rgba(216,240,244," + (1 - b.age / b.life) * 0.7 + ")";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    var dx = W * 0.5;
+    ctx.save();
+    ctx.translate(dx, diverY);
+    ctx.fillStyle = "#c4a070";
+    ctx.beginPath();
+    ctx.arc(0, -10, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#2a4a50";
+    ctx.fillRect(-5, -4, 10, 16);
+    ctx.strokeStyle = "#d8f0f4";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-5, 4);
+    ctx.lineTo(-12, 10);
+    ctx.moveTo(5, 4);
+    ctx.lineTo(12, 10);
+    ctx.stroke();
+    ctx.fillStyle = "#d8f0f4";
+    ctx.globalAlpha = 0.8;
+    for (var i = 0; i < carried; i++) {
+      ctx.beginPath();
+      ctx.arc(-10 + i * 5, 8, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    if (blackout > 0) {
+      ctx.fillStyle = "rgba(4,8,12," + Math.min(0.92, blackout * 1.1) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function loop(now) {
+    if (!last) last = now;
+    var dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.1) dt = 0.1;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function down(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    unlockAudio();
+    if (over || blackout > 0) return;
+    holding = true;
+  }
+  function up() { holding = false; }
+
+  canvas.addEventListener("pointerdown", down);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") { e.preventDefault(); down(); }
+  });
+  window.addEventListener("keyup", function (e) {
+    if (e.code === "Space") up();
+  });
+  again.addEventListener("click", function () {
+    unlockAudio();
+    resetAll();
+  });
+  window.addEventListener("resize", resize);
+
+  resize();
+  resetAll();
+  requestAnimationFrame(loop);
+})();
+  </script>
+</body>
+</html>

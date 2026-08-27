@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Asterism — نجمة</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Oranienbaum&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --night: #0c1020;
+      --silver: #dce6f4;
+      --dim: #8a96aa;
+      --line: #9aa8c4;
+      --plate: #101428;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--night); color: var(--silver); }
+    body {
+      font-family: Oranienbaum, "Times New Roman", serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+    }
+    .vault {
+      position: fixed;
+      bottom: 10px;
+      left: 14px;
+      z-index: 20;
+      color: var(--dim);
+      text-decoration: none;
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.5;
+    }
+    .vault:hover, .vault:focus-visible { opacity: 1; color: var(--silver); }
+    header.mast {
+      padding: 1.25rem 1.25rem 0.4rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+    }
+    header.mast h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 6vw, 2.4rem);
+      font-weight: 400;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+    header.mast p {
+      margin: 0;
+      color: var(--dim);
+      font-size: 0.85rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .stage {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+      padding: 0.4rem 0.9rem 5.5rem;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+    }
+    @media (min-width: 860px) {
+      .stage { grid-template-columns: 1fr 240px; padding-bottom: 2rem; }
+    }
+    .plate-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1.05;
+      max-height: min(72dvh, 760px);
+      margin: 0 auto;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      background: var(--plate);
+      border-radius: 2px;
+    }
+    .hud {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    label.field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--dim);
+    }
+    label.field input {
+      font-family: inherit;
+      font-size: 1.25rem;
+      letter-spacing: 0.04em;
+      color: var(--silver);
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid color-mix(in srgb, var(--silver) 35%, transparent);
+      padding: 0.55rem 0.1rem;
+      min-height: 44px;
+      text-transform: none;
+    }
+    label.field input:focus { outline: none; border-bottom-color: var(--silver); }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    button {
+      font-family: inherit;
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--silver);
+      background: transparent;
+      border: 1px solid color-mix(in srgb, var(--silver) 38%, transparent);
+      min-height: 44px;
+      padding: 0 0.9rem;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    button.primary { background: color-mix(in srgb, var(--silver) 10%, transparent); }
+    button:hover, button:focus-visible { background: color-mix(in srgb, var(--silver) 16%, transparent); }
+    button:disabled { opacity: 0.35; cursor: default; }
+    .saved h2 {
+      margin: 0.4rem 0 0.3rem;
+      font-size: 0.75rem;
+      font-weight: 400;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--dim);
+    }
+    .saved ul { list-style: none; margin: 0; padding: 0; }
+    .saved li { margin: 0; }
+    .saved button.link {
+      width: 100%;
+      text-align: left;
+      border: none;
+      border-bottom: 1px solid color-mix(in srgb, var(--silver) 14%, transparent);
+      letter-spacing: 0.06em;
+      text-transform: none;
+      font-size: 1.05rem;
+      padding-inline: 0.2rem;
+    }
+    .hint {
+      margin: 0;
+      color: var(--dim);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="vault" href="../">الخزانة</a>
+  <header class="mast">
+    <h1>Asterism</h1>
+    <p>Plate XVII · Atlas Noctis</p>
+  </header>
+  <div class="stage">
+    <div class="plate-wrap">
+      <canvas id="sky" aria-label="Star atlas plate. Click stars to connect a constellation."></canvas>
+    </div>
+    <aside class="hud">
+      <p class="hint" id="status">Click stars to draw a line. Name what you found.</p>
+      <label class="field">Name of asterism
+        <input id="name" maxlength="48" placeholder="e.g. The Broken Gate" autocomplete="off" />
+      </label>
+      <div class="row">
+        <button type="button" class="primary" id="save">Save to night</button>
+        <button type="button" id="undo">Undo star</button>
+        <button type="button" id="clear">Clear line</button>
+      </div>
+      <div class="saved">
+        <h2>Saved to this night</h2>
+        <ul id="list"></ul>
+      </div>
+    </aside>
+  </div>
+  <script>
+    (function () {
+      const KEY = "asterism.night.v1";
+      const NAMES = ["Sirius", "Vega", "Deneb", "Altair", "Rigel", "Capella", "Arcturus", "Spica", "Antares", "Fomalhaut", "Procyon", "Aldebaran"];
+      const canvas = document.getElementById("sky");
+      const wrap = canvas.parentElement;
+      const nameEl = document.getElementById("name");
+      const statusEl = document.getElementById("status");
+      const listEl = document.getElementById("list");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      function mulberry32(a) {
+        return function () {
+          let t = (a += 0x6d2b79f5);
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      let stars = [];
+      let path = [];
+      let cssW = 0;
+      let cssH = 0;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      function layout() {
+        const r = wrap.getBoundingClientRect();
+        cssW = Math.max(280, Math.floor(r.width));
+        cssH = Math.max(300, Math.floor(r.height));
+        const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(cssH * dpr);
+        canvas.style.width = cssW + "px";
+        canvas.style.height = cssH + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        if (!stars.length) buildSky();
+        else projectStars();
+        draw();
+      }
+
+      function innerRect() {
+        const m = Math.min(cssW, cssH) * 0.08;
+        return { x: m, y: m * 1.15, w: cssW - m * 2, h: cssH - m * 2.1 };
+      }
+
+      function buildSky() {
+        const rand = mulberry32(202617);
+        const n = 118;
+        stars = [];
+        for (let i = 0; i < n; i++) {
+          stars.push({
+            ra: rand(),
+            dec: rand(),
+            mag: Math.pow(rand(), 1.7),
+            name: null
+          });
+        }
+        stars.sort((a, b) => b.mag - a.mag);
+        for (let i = 0; i < NAMES.length; i++) stars[i].name = NAMES[i];
+        projectStars();
+      }
+
+      function projectStars() {
+        const box = innerRect();
+        for (const s of stars) {
+          s.x = box.x + s.ra * box.w;
+          s.y = box.y + s.dec * box.h;
+          s.r = 0.6 + s.mag * 2.4;
+        }
+      }
+
+      function drawPlate() {
+        ctx.fillStyle = "#0c1020";
+        ctx.fillRect(0, 0, cssW, cssH);
+        const m = Math.min(cssW, cssH) * 0.08;
+        ctx.strokeStyle = "rgba(220,230,244,0.55)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(m * 0.35, m * 0.35, cssW - m * 0.7, cssH - m * 0.7);
+        ctx.strokeStyle = "rgba(220,230,244,0.28)";
+        ctx.strokeRect(m * 0.5, m * 0.5, cssW - m, cssH - m);
+        const box = innerRect();
+        ctx.strokeStyle = "rgba(220,230,244,0.2)";
+        ctx.strokeRect(box.x, box.y, box.w, box.h);
+
+        ctx.fillStyle = "rgba(220,230,244,0.45)";
+        ctx.font = "11px Oranienbaum, serif";
+        ctx.textAlign = "center";
+        const hours = ["18h", "19h", "20h", "21h", "22h", "23h"];
+        for (let i = 0; i < hours.length; i++) {
+          const x = box.x + ((i + 0.5) / hours.length) * box.w;
+          ctx.beginPath();
+          ctx.moveTo(x, box.y);
+          ctx.lineTo(x, box.y - 6);
+          ctx.strokeStyle = "rgba(220,230,244,0.4)";
+          ctx.stroke();
+          ctx.fillText(hours[i], x, box.y - 10);
+        }
+        ctx.textAlign = "right";
+        const decs = ["+32°", "+24°", "+16°", "+8°", "0°"];
+        for (let i = 0; i < decs.length; i++) {
+          const y = box.y + ((i + 0.5) / decs.length) * box.h;
+          ctx.beginPath();
+          ctx.moveTo(box.x, y);
+          ctx.lineTo(box.x - 6, y);
+          ctx.stroke();
+          ctx.fillText(decs[i], box.x - 8, y + 3);
+        }
+        ctx.textAlign = "left";
+        ctx.fillStyle = "rgba(220,230,244,0.38)";
+        ctx.font = "12px Oranienbaum, serif";
+        ctx.fillText("RA", box.x, box.y - 22);
+        ctx.fillText("Dec", 8, box.y + 8);
+        ctx.textAlign = "right";
+        ctx.fillText("Epoch 2026.0", cssW - m * 0.55, cssH - m * 0.42);
+        ctx.textAlign = "left";
+        ctx.fillText("Urania plate", m * 0.55, cssH - m * 0.42);
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(220,230,244,0.08)";
+        ctx.beginPath();
+        ctx.moveTo(box.x + box.w / 2, box.y);
+        ctx.lineTo(box.x + box.w / 2, box.y + box.h);
+        ctx.moveTo(box.x, box.y + box.h / 2);
+        ctx.lineTo(box.x + box.w, box.y + box.h / 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function draw() {
+        drawPlate();
+        const box = innerRect();
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(box.x, box.y, box.w, box.h);
+        ctx.clip();
+
+        if (path.length > 1) {
+          ctx.beginPath();
+          ctx.strokeStyle = "rgba(220,230,244,0.72)";
+          ctx.lineWidth = 1;
+          ctx.moveTo(stars[path[0]].x, stars[path[0]].y);
+          for (let i = 1; i < path.length; i++) ctx.lineTo(stars[path[i]].x, stars[path[i]].y);
+          ctx.stroke();
+        }
+        for (let i = 0; i < path.length; i++) {
+          const s = stars[path[i]];
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r + 3.2, 0, Math.PI * 2);
+          ctx.strokeStyle = "rgba(220,230,244,0.55)";
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+
+        for (const s of stars) {
+          const a = 0.28 + s.mag * 0.72;
+          ctx.beginPath();
+          ctx.fillStyle = "rgba(220,230,244," + a + ")";
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.font = "11px Oranienbaum, serif";
+        ctx.fillStyle = "rgba(220,230,244,0.32)";
+        ctx.textAlign = "left";
+        for (const s of stars) {
+          if (!s.name) continue;
+          ctx.fillText(s.name, s.x + 6, s.y - 5);
+        }
+        ctx.restore();
+      }
+
+      function nearest(x, y) {
+        let best = -1;
+        let d0 = 18;
+        for (let i = 0; i < stars.length; i++) {
+          const dx = stars[i].x - x;
+          const dy = stars[i].y - y;
+          const d = Math.hypot(dx, dy);
+          if (d < d0) {
+            d0 = d;
+            best = i;
+          }
+        }
+        return best;
+      }
+
+      canvas.addEventListener("pointerdown", function (e) {
+        const r = canvas.getBoundingClientRect();
+        const x = ((e.clientX - r.left) / r.width) * cssW;
+        const y = ((e.clientY - r.top) / r.height) * cssH;
+        const i = nearest(x, y);
+        if (i < 0) return;
+        if (path.length && path[path.length - 1] === i) return;
+        path.push(i);
+        statusEl.textContent = path.length + " star" + (path.length === 1 ? "" : "s") + " in the line.";
+        draw();
+      });
+
+      function loadSaved() {
+        try {
+          const raw = localStorage.getItem(KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (err) {
+          return [];
+        }
+      }
+      function persist(items) {
+        try {
+          localStorage.setItem(KEY, JSON.stringify(items));
+        } catch (err) {}
+      }
+      function renderList() {
+        const items = loadSaved();
+        listEl.replaceChildren();
+        if (!items.length) {
+          const li = document.createElement("li");
+          li.innerHTML = '<p class="hint">None yet. The night keeps what you name.</p>';
+          listEl.appendChild(li);
+          return;
+        }
+        items.forEach(function (item, idx) {
+          const li = document.createElement("li");
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "link";
+          b.textContent = item.name;
+          b.addEventListener("click", function () {
+            path = item.indices.filter(function (n) { return n >= 0 && n < stars.length; });
+            nameEl.value = item.name;
+            statusEl.textContent = "Reloaded “" + item.name + "”.";
+            draw();
+          });
+          li.appendChild(b);
+          listEl.appendChild(li);
+          b.dataset.i = String(idx);
+        });
+      }
+
+      document.getElementById("save").addEventListener("click", function () {
+        const name = nameEl.value.trim();
+        if (!name) {
+          statusEl.textContent = "Give it a name before saving.";
+          nameEl.focus();
+          return;
+        }
+        if (path.length < 2) {
+          statusEl.textContent = "Connect at least two stars.";
+          return;
+        }
+        const items = loadSaved().filter(function (it) { return it.name !== name; });
+        items.unshift({ name: name, indices: path.slice(), t: Date.now() });
+        persist(items.slice(0, 24));
+        statusEl.textContent = "Saved to night.";
+        renderList();
+      });
+      document.getElementById("undo").addEventListener("click", function () {
+        path.pop();
+        statusEl.textContent = path.length ? path.length + " star" + (path.length === 1 ? "" : "s") + " in the line." : "Line cleared.";
+        draw();
+      });
+      document.getElementById("clear").addEventListener("click", function () {
+        path = [];
+        statusEl.textContent = "Line cleared. Click stars to begin.";
+        draw();
+      });
+
+      window.addEventListener("resize", function () {
+        if (reduced) { layout(); return; }
+        layout();
+      });
+      renderList();
+      layout();
+    })();
+  </script>
+</body>
+</html>

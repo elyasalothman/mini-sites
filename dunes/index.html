@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>كثبان · Dunes</title>
+  <meta name="description" content="حرّك الريح وشاهد الرمل يهاجر عبر الكثبان." />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root { --sand:#e2c17a; --dusk:#3a2a18; --sky:#f0d9a8; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: #c9a56a; color: var(--dusk); font-family: "IBM Plex Sans Arabic", system-ui, sans-serif; }
+    a.back { position:fixed; top:12px; left:12px; color:#3a2a18; text-decoration:none; opacity:.55; z-index:2; min-height:44px; display:grid; place-items:center; }
+    canvas { display:block; width:100%; height:100dvh; }
+    .hud {
+      position: fixed; right: 16px; bottom: 16px; left: 16px;
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+      background: color-mix(in oklab, #f0d9a8 86%, transparent);
+      border: 1px solid #3a2a1822; padding: 12px 16px; border-radius: 16px;
+    }
+    h1 { font-family: Syne, sans-serif; font-size: 1.1rem; margin: 0 8px 0 0; }
+    label { font-size: .8rem; display:flex; align-items:center; gap:8px; flex: 1; min-width: 180px; }
+    input[type=range] { flex: 1; accent-color: #3a2a18; }
+    button { min-height: 44px; padding: 0 14px; border: 1px solid #3a2a18; background: #3a2a18; color: #f0d9a8; font: inherit; cursor: pointer; border-radius: 8px; }
+    @media (prefers-reduced-motion: reduce) { canvas { image-rendering: auto; } }
+  </style>
+</head>
+<body>
+  <a class="back" href="../">الخزانة</a>
+  <canvas id="c"></canvas>
+  <div class="hud">
+    <h1>كثبان</h1>
+    <label>الريح <input id="wind" type="range" min="0" max="360" value="28" /></label>
+    <label>القوة <input id="force" type="range" min="1" max="12" value="5" /></label>
+    <button type="button" id="storm">عاصفة</button>
+  </div>
+  <script>
+    const W = 160, H = 90;
+    const h = new Float32Array(W * H);
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    const windEl = document.getElementById("wind");
+    const forceEl = document.getElementById("force");
+    let img, imgData;
+
+    function idx(x, y) { return ((y + H) % H) * W + ((x + W) % W); }
+
+    function seed() {
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const n = Math.sin(x * 0.11) * Math.cos(y * 0.09) + Math.sin((x + y) * 0.05);
+          h[idx(x, y)] = 8 + n * 6 + Math.random() * 2;
+        }
+      }
+    }
+
+    function step(grains) {
+      const ang = (Number(windEl.value) * Math.PI) / 180;
+      const wx = Math.round(Math.cos(ang));
+      const wy = Math.round(Math.sin(ang));
+      const repose = 1.35;
+      for (let i = 0; i < grains; i++) {
+        const x = (Math.random() * W) | 0;
+        const y = (Math.random() * H) | 0;
+        const i0 = idx(x, y);
+        if (h[i0] <= 0.4) continue;
+        const i1 = idx(x + wx, y + wy);
+        if (h[i1] + repose < h[i0] || Math.random() < 0.15) {
+          h[i0] -= 1;
+          h[i1] += 1;
+        }
+        const i2 = idx(x, y + 1);
+        if (h[i0] - h[i2] > 2.2) { h[i0] -= 1; h[i2] += 1; }
+      }
+    }
+
+    function resize() {
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      canvas.width = canvas.clientWidth * dpr;
+      canvas.height = canvas.clientHeight * dpr;
+    }
+
+    function render() {
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      const cw = canvas.width, ch = canvas.height;
+      if (!img || img.width !== W) {
+        img = ctx.createImageData(W, H);
+        imgData = img.data;
+      }
+      const ang = (Number(windEl.value) * Math.PI) / 180;
+      const lx = Math.cos(ang + 0.7), ly = Math.sin(ang + 0.7);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const z = h[idx(x, y)];
+          const dzx = h[idx(x + 1, y)] - z;
+          const dzy = h[idx(x, y + 1)] - z;
+          const shade = 0.55 + 0.45 * Math.max(0, (-dzx * lx - dzy * ly) / 4);
+          const t = Math.min(1, z / 22);
+          const r = (210 + t * 30) * shade;
+          const g = (160 + t * 20) * shade;
+          const b = (90 + t * 10) * shade;
+          const o = (y * W + x) * 4;
+          imgData[o] = r; imgData[o+1] = g; imgData[o+2] = b; imgData[o+3] = 255;
+        }
+      }
+      const off = document.createElement("canvas");
+      off.width = W; off.height = H;
+      off.getContext("2d").putImageData(img, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(off, 0, 0, cw, ch);
+    }
+
+    let last = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      const grains = (Number(forceEl.value) * 1400 * dt) | 0;
+      step(grains);
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById("storm").onclick = () => {
+      for (let i = 0; i < 8; i++) {
+        const cx = (Math.random() * W) | 0, cy = (Math.random() * H) | 0;
+        for (let y = -6; y <= 6; y++) for (let x = -10; x <= 10; x++) {
+          h[idx(cx + x, cy + y)] += Math.max(0, 7 - Math.hypot(x * 0.6, y));
+        }
+      }
+    };
+    addEventListener("resize", resize);
+    canvas.addEventListener("pointerdown", (e) => {
+      const r = canvas.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width) * W;
+      const y = ((e.clientY - r.top) / r.height) * H;
+      for (let j = -5; j <= 5; j++) for (let i = -5; i <= 5; i++) {
+        h[idx((x + i) | 0, (y + j) | 0)] += Math.max(0, 5 - Math.hypot(i, j));
+      }
+    });
+    seed(); resize(); requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

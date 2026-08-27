@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>كليم — نول رقمي</title>
+  <meta name="description" content="انسج كليماً على نول رقمي: ألوان صوف تقليدية، أختام زخرفية، وتصدير PNG.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --madder: #a8323c; --indigo: #1c2a6a; --wool: #f8efe4; --saffron: #d4a017; --ink: #4a1020; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; }
+    body {
+      font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+      background: var(--wool);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .hang {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 0 72px;
+    }
+    .beam {
+      width: 100%;
+      background: linear-gradient(#6a3a22, #4a2818);
+      height: 22px;
+      box-shadow: 0 8px 0 #2a140c;
+    }
+    .titleband {
+      width: min(100%, 920px);
+      background: repeating-linear-gradient(90deg, #a8323c 0 16px, #1c2a6a 16px 32px, #d4a017 32px 40px, #f8efe4 40px 48px);
+      padding: 14px 16px 10px;
+      text-align: center;
+      color: var(--wool);
+      text-shadow: 0 1px 0 #4a1020;
+    }
+    .titleband h1 {
+      font-family: "DM Serif Display", Georgia, serif;
+      font-size: clamp(2rem, 8vw, 3.4rem);
+      font-weight: 400;
+      letter-spacing: 0.12em;
+    }
+    .titleband p { font-size: 0.82rem; margin-top: 2px; }
+    .kit {
+      width: min(100%, 920px);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 12px 8px;
+      align-items: center;
+      justify-content: center;
+    }
+    .swatch {
+      width: 44px; height: 44px; border: 2px solid transparent; cursor: pointer;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
+    }
+    .swatch[aria-pressed="true"] { border-color: var(--ink); outline: 2px solid var(--saffron); }
+    .stamp, .act {
+      min-height: 44px; padding: 0 12px; cursor: pointer;
+      font-family: inherit; font-size: 0.85rem;
+      background: #efe4d4; color: var(--ink); border: 1px solid #c4b09a;
+    }
+    .stamp[aria-pressed="true"] { background: var(--indigo); color: var(--wool); }
+    .act.primary { background: var(--madder); color: var(--wool); border-color: var(--madder); }
+    .loom-wrap {
+      width: min(96vw, 880px);
+      background: #e8dcc8;
+      padding: 12px 10px 18px;
+      box-shadow: 0 12px 0 #c8b89a;
+    }
+    canvas#loom {
+      width: 100%;
+      height: auto;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+      background: #e8d4b0;
+    }
+    .caption { font-size: 0.78rem; opacity: 0.7; text-align: center; margin-top: 8px; }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hang">
+    <div class="beam" aria-hidden="true"></div>
+    <div class="titleband">
+      <h1>كليم</h1>
+      <p>نول صوف · 32 × 20 · أختام زخرفية</p>
+    </div>
+    <div class="kit" id="kit"></div>
+    <div class="loom-wrap">
+      <canvas id="loom" width="960" height="600" aria-label="شبكة النول"></canvas>
+      <p class="caption">اسحب لرمي اللحمة. الختم يُطبَّق عند النقرة. الصوف فيه حبّة، لا بكسل مسطّح.</p>
+    </div>
+  </div>
+  <a href="../" style="position:fixed;bottom:12px;inset-inline-start:12px;z-index:50;font-size:11px;letter-spacing:.12em;opacity:.4;color:#4a1020;text-decoration:none">الخزانة</a>
+  <script>
+  (function () {
+    const COLS = 32, ROWS = 20;
+    const PALETTE = [
+      { n: "قِرمز", c: [168, 50, 60] },
+      { n: "نيلي", c: [28, 42, 106] },
+      { n: "صوف", c: [248, 239, 228] },
+      { n: "زعفران", c: [212, 160, 23] },
+      { n: "زيتون", c: [61, 92, 58] },
+      { n: "فحم", c: [42, 36, 32] }
+    ];
+    let color = 0;
+    let stamp = null;
+    const grid = [];
+    const noise = [];
+    for (let y = 0; y < ROWS; y++) {
+      grid[y] = [];
+      noise[y] = [];
+      for (let x = 0; x < COLS; x++) {
+        grid[y][x] = 2;
+        noise[y][x] = (Math.random() - 0.5) * 28;
+      }
+    }
+    for (let x = 0; x < COLS; x++) {
+      grid[0][x] = 1; grid[1][x] = x % 2 ? 3 : 0;
+      grid[ROWS - 1][x] = 1; grid[ROWS - 2][x] = x % 2 ? 0 : 3;
+    }
+    for (let y = 0; y < ROWS; y++) {
+      grid[y][0] = 1; grid[y][1] = y % 2 ? 3 : 0;
+      grid[y][COLS - 1] = 1; grid[y][COLS - 2] = y % 2 ? 0 : 3;
+    }
+    (function seedDiamond() {
+      const cx = 16, cy = 10, s = 6;
+      for (let y = -s; y <= s; y++) for (let x = -s; x <= s; x++) {
+        const m = Math.abs(x) + Math.abs(y);
+        if (m === s) grid[cy + y][cx + x] = 0;
+        if (m === s - 2) grid[cy + y][cx + x] = 1;
+        if (m < 2) grid[cy + y][cx + x] = 3;
+      }
+    })();
+    const undo = [];
+    function snapshot() {
+      undo.push(grid.map(r => r.slice()));
+      if (undo.length > 40) undo.shift();
+    }
+
+    const STAMPS = {
+      diamond: function (cx, cy, k) {
+        const s = 4;
+        for (let y = -s; y <= s; y++) for (let x = -s; x <= s; x++) {
+          const m = Math.abs(x) + Math.abs(y);
+          if (m === s || m === s - 2) set(cx + x, cy + y, k);
+        }
+      },
+      hooked: function (cx, cy, k) {
+        const s = 5;
+        for (let y = -s; y <= s; y++) for (let x = -s; x <= s; x++) {
+          const m = Math.abs(x) + Math.abs(y);
+          if (m === s) set(cx + x, cy + y, k);
+        }
+        set(cx + s, cy, k); set(cx + s + 1, cy, k); set(cx + s + 1, cy - 1, k);
+        set(cx - s, cy, k); set(cx - s - 1, cy, k); set(cx - s - 1, cy + 1, k);
+      },
+      dog: function (cx, cy, k) {
+        for (let i = 0; i < 8; i++) {
+          set(cx + i, cy, k);
+          set(cx + i, cy + 3, k);
+          if (i % 4 < 2) set(cx + i, cy + 1, k);
+          else set(cx + i, cy + 2, k);
+        }
+      },
+      tree: function (cx, cy, k) {
+        for (let y = 0; y < 8; y++) set(cx, cy + y, k);
+        for (let t = 0; t < 4; t++) {
+          const w = 4 - t;
+          for (let x = -w; x <= w; x++) set(cx + x, cy + t, k);
+        }
+        set(cx - 1, cy + 7, k); set(cx + 1, cy + 7, k);
+      }
+    };
+
+    function inb(x, y) { return x >= 0 && y >= 0 && x < COLS && y < ROWS; }
+    function set(x, y, k) { if (inb(x, y)) grid[y][x] = k; }
+
+    const kit = document.getElementById("kit");
+    PALETTE.forEach((p, i) => {
+      const b = document.createElement("button");
+      b.className = "swatch";
+      b.type = "button";
+      b.title = p.n;
+      b.style.background = "rgb(" + p.c.join(",") + ")";
+      b.setAttribute("aria-pressed", i === 0 ? "true" : "false");
+      b.addEventListener("click", () => {
+        color = i;
+        kit.querySelectorAll(".swatch").forEach(el => el.setAttribute("aria-pressed", "false"));
+        b.setAttribute("aria-pressed", "true");
+      });
+      kit.appendChild(b);
+    });
+    const stampNames = [
+      { id: "diamond", ar: "معين" },
+      { id: "hooked", ar: "معين معقوف" },
+      { id: "dog", ar: "كلب راكض" },
+      { id: "tree", ar: "شجرة الحياة" }
+    ];
+    stampNames.forEach(s => {
+      const b = document.createElement("button");
+      b.className = "stamp"; b.type = "button"; b.textContent = s.ar;
+      b.addEventListener("click", () => {
+        stamp = stamp === s.id ? null : s.id;
+        kit.querySelectorAll(".stamp").forEach(el => el.setAttribute("aria-pressed", "false"));
+        if (stamp) b.setAttribute("aria-pressed", "true");
+      });
+      kit.appendChild(b);
+    });
+    function act(label, cls, fn) {
+      const b = document.createElement("button");
+      b.className = "act" + (cls ? " " + cls : "");
+      b.type = "button"; b.textContent = label;
+      b.addEventListener("click", fn);
+      kit.appendChild(b);
+    }
+    act("تراجع", "", () => {
+      const prev = undo.pop();
+      if (prev) { for (let y = 0; y < ROWS; y++) grid[y] = prev[y]; draw(); }
+    });
+    act("مسح", "", () => {
+      snapshot();
+      for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) grid[y][x] = 2;
+      draw();
+    });
+    act("تصدير PNG", "primary", exportPng);
+
+    const canvas = document.getElementById("loom");
+    const ctx = canvas.getContext("2d");
+    let cw = 960, ch = 600, cellW = 30, cellH = 30;
+    function sizeCanvas() {
+      const r = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = r.width;
+      const cssH = cssW * (ROWS / COLS) * 1.05;
+      canvas.style.height = cssH + "px";
+      canvas.width = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cw = cssW; ch = cssH;
+      cellW = cw / COLS; cellH = ch / ROWS;
+    }
+    sizeCanvas();
+    addEventListener("resize", () => { sizeCanvas(); draw(); });
+
+    function jitter(c, n) {
+      const v = Math.max(-30, Math.min(30, n));
+      return [
+        Math.max(0, Math.min(255, c[0] + v)),
+        Math.max(0, Math.min(255, c[1] + v * 0.7)),
+        Math.max(0, Math.min(255, c[2] + v * 0.5))
+      ];
+    }
+
+    function draw() {
+      ctx.fillStyle = "#d8c4a0";
+      ctx.fillRect(0, 0, cw, ch);
+      for (let x = 0; x < COLS; x++) {
+        ctx.fillStyle = x % 2 ? "rgba(80,50,20,0.12)" : "rgba(255,245,220,0.12)";
+        ctx.fillRect(x * cellW + cellW * 0.42, 0, Math.max(1, cellW * 0.12), ch);
+      }
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const rgb = jitter(PALETTE[grid[y][x]].c, noise[y][x]);
+          ctx.fillStyle = "rgb(" + rgb.join(",") + ")";
+          const pad = 0.08;
+          ctx.fillRect(x * cellW + pad * cellW, y * cellH + pad * cellH, cellW * (1 - 2 * pad), cellH * (1 - 2 * pad));
+          ctx.fillStyle = "rgba(255,255,255,0.07)";
+          ctx.fillRect(x * cellW + pad * cellW, y * cellH + pad * cellH, cellW * (1 - 2 * pad), cellH * 0.18);
+        }
+      }
+    }
+
+    function cellAt(e) {
+      const r = canvas.getBoundingClientRect();
+      const x = Math.floor(((e.clientX - r.left) / r.width) * COLS);
+      const y = Math.floor(((e.clientY - r.top) / r.height) * ROWS);
+      return { x, y };
+    }
+    let painting = false;
+    function apply(x, y) {
+      if (!inb(x, y)) return;
+      if (stamp && STAMPS[stamp]) STAMPS[stamp](x, y, color);
+      else set(x, y, color);
+    }
+    canvas.addEventListener("pointerdown", (e) => {
+      snapshot();
+      painting = true;
+      canvas.setPointerCapture(e.pointerId);
+      const c = cellAt(e);
+      apply(c.x, c.y);
+      draw();
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!painting || stamp) return;
+      const c = cellAt(e);
+      set(c.x, c.y, color);
+      draw();
+    });
+    canvas.addEventListener("pointerup", () => { painting = false; });
+
+    function exportPng() {
+      const out = document.createElement("canvas");
+      out.width = COLS * 24; out.height = ROWS * 24;
+      const o = out.getContext("2d");
+      for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+        const rgb = jitter(PALETTE[grid[y][x]].c, noise[y][x]);
+        o.fillStyle = "rgb(" + rgb.join(",") + ")";
+        o.fillRect(x * 24, y * 24, 24, 24);
+        o.fillStyle = "rgba(0,0,0,0.06)";
+        o.fillRect(x * 24 + 10, y * 24, 3, 24);
+      }
+      const a = document.createElement("a");
+      a.href = out.toDataURL("image/png");
+      a.download = "kilim.png";
+      a.click();
+    }
+    draw();
+  })();
+  </script>
+</body>
+</html>

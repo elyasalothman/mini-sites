@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>زليج — Zellige</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --blue: #1a6a9a;
+      --grout: #f3efe6;
+      --gold: #c4a05a;
+      --ink: #123048;
+      --cobalt: #164a8a;
+      --emerald: #1a7a52;
+      --bone: #e8dcc4;
+      --terra: #c45a38;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #e8eef2; color: var(--ink); }
+    body {
+      font-family: "El Messiri", "Segoe UI", sans-serif;
+      min-height: 100dvh;
+    }
+    .vault {
+      position: fixed;
+      bottom: 10px;
+      inset-inline-start: 14px;
+      z-index: 20;
+      color: var(--blue);
+      text-decoration: none;
+      font-size: 0.85rem;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.5;
+    }
+    .vault:hover, .vault:focus-visible { opacity: 1; }
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 1.15rem 0.9rem 5.6rem;
+    }
+    header h1 {
+      margin: 0;
+      font-size: clamp(1.8rem, 7vw, 2.6rem);
+      font-weight: 700;
+      color: var(--blue);
+    }
+    header p { margin: 0.2rem 0 0.9rem; font-size: 1rem; }
+    .tools {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-bottom: 0.8rem;
+    }
+    .group { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+    .group span {
+      font-size: 0.85rem;
+      min-width: 3.2rem;
+      color: color-mix(in srgb, var(--ink) 70%, transparent);
+    }
+    button {
+      font-family: inherit;
+      font-size: 0.95rem;
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0 0.75rem;
+      cursor: pointer;
+      touch-action: manipulation;
+      border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+      background: #fff;
+      color: var(--ink);
+    }
+    button[aria-pressed="true"] { outline: 2px solid var(--gold); outline-offset: 1px; }
+    button.shape {
+      width: 52px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      background: var(--grout);
+    }
+    button.shape svg { width: 28px; height: 28px; display: block; }
+    button.swatch { width: 44px; padding: 0; border-width: 2px; }
+    button.swatch.cobalt { background: var(--cobalt); }
+    button.swatch.emerald { background: var(--emerald); }
+    button.swatch.bone { background: var(--bone); }
+    button.swatch.terra { background: var(--terra); }
+    button.swatch.gold { background: var(--gold); }
+    button.act { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .board-wrap {
+      width: 100%;
+      max-width: min(100%, 560px);
+      margin: 0.4rem auto 0;
+      aspect-ratio: 1 / 1;
+      background: var(--grout);
+      border: 10px solid var(--blue);
+      box-shadow: 0 0 0 2px var(--gold);
+      touch-action: none;
+    }
+    canvas { display: block; width: 100%; height: 100%; cursor: pointer; }
+    .status { margin: 0.55rem 0 0; font-size: 0.95rem; min-height: 1.4em; }
+    @media (prefers-reduced-motion: reduce) {
+      button { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="vault" href="../">الخزانة</a>
+  <main>
+    <header>
+      <h1>زليج</h1>
+      <p>لوح ١٢×١٢. اختر الشكل واللون، ثم اطبع على الخلية. R أو زر التدوير يلف ٤٥°.</p>
+    </header>
+    <div class="tools">
+      <div class="group" role="group" aria-label="الشكل">
+        <span>شكل</span>
+        <button type="button" class="shape" data-shape="square" aria-pressed="true" aria-label="مربع">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="4" width="24" height="24" fill="#164a8a"/></svg>
+        </button>
+        <button type="button" class="shape" data-shape="star" aria-pressed="false" aria-label="نجمة ثمانية">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect x="9" y="9" width="14" height="14" fill="#164a8a"/>
+            <rect x="9" y="9" width="14" height="14" fill="#164a8a" transform="rotate(45 16 16)"/>
+          </svg>
+        </button>
+        <button type="button" class="shape" data-shape="ribbon" aria-pressed="false" aria-label="شريط">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#164a8a" d="M4 14h8l4-8 4 8h8v4h-8l-4 8-4-8H4z"/></svg>
+        </button>
+        <button type="button" class="shape" data-shape="cross" aria-pressed="false" aria-label="صليب">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#164a8a" d="M12 4h8v8h8v8h-8v8h-8v-8H4v-8h8z"/></svg>
+        </button>
+      </div>
+      <div class="group" role="group" aria-label="اللون">
+        <span>لون</span>
+        <button type="button" class="swatch cobalt" data-color="#164a8a" aria-pressed="true" aria-label="كوبالت"></button>
+        <button type="button" class="swatch emerald" data-color="#1a7a52" aria-pressed="false" aria-label="زمرد"></button>
+        <button type="button" class="swatch bone" data-color="#e8dcc4" aria-pressed="false" aria-label="عظم"></button>
+        <button type="button" class="swatch terra" data-color="#c45a38" aria-pressed="false" aria-label="فخار"></button>
+        <button type="button" class="swatch gold" data-color="#c4a05a" aria-pressed="false" aria-label="ذهب"></button>
+      </div>
+      <div class="group">
+        <span>دوران</span>
+        <button type="button" id="rot" aria-label="تدوير ٤٥ درجة">٠°</button>
+        <button type="button" class="act" id="export">تصدير PNG</button>
+        <button type="button" id="wipe">مسح اللوح</button>
+      </div>
+    </div>
+    <div class="board-wrap">
+      <canvas id="board" width="600" height="600" aria-label="لوح الزليج، اثنتا عشرة خلية في اثنتي عشرة"></canvas>
+    </div>
+    <p class="status" id="status">خلية فارغة تُملأ بالشكل المختار. النقر يستبدل البلاطة.</p>
+  </main>
+  <script>
+    (function () {
+      const N = 12;
+      const GROUT = "#f3efe6";
+      const canvas = document.getElementById("board");
+      const ctx = canvas.getContext("2d");
+      const statusEl = document.getElementById("status");
+      const rotBtn = document.getElementById("rot");
+      if (!ctx) return;
+
+      let shape = "square";
+      let color = "#164a8a";
+      let rot = 0;
+      const cells = new Array(N * N).fill(null);
+      let cssW = 0;
+
+      function drawShape(kind, fill, s) {
+        ctx.fillStyle = fill;
+        const inner = s * 0.84;
+        if (kind === "square") {
+          ctx.fillRect(-inner / 2, -inner / 2, inner, inner);
+          return;
+        }
+        if (kind === "star") {
+          const q = inner * 0.46;
+          ctx.fillRect(-q, -q, q * 2, q * 2);
+          ctx.save();
+          ctx.rotate(Math.PI / 4);
+          ctx.fillRect(-q, -q, q * 2, q * 2);
+          ctx.restore();
+          return;
+        }
+        if (kind === "ribbon") {
+          const w = inner * 0.48;
+          const h = inner * 0.16;
+          ctx.beginPath();
+          ctx.moveTo(-w, -h);
+          ctx.lineTo(-h, -h);
+          ctx.lineTo(0, -inner * 0.42);
+          ctx.lineTo(h, -h);
+          ctx.lineTo(w, -h);
+          ctx.lineTo(w, h);
+          ctx.lineTo(h, h);
+          ctx.lineTo(0, inner * 0.42);
+          ctx.lineTo(-h, h);
+          ctx.lineTo(-w, h);
+          ctx.closePath();
+          ctx.fill();
+          return;
+        }
+        const arm = inner * 0.18;
+        ctx.fillRect(-arm, -inner / 2, arm * 2, inner);
+        ctx.fillRect(-inner / 2, -arm, inner, arm * 2);
+      }
+
+      function paint() {
+        const r = canvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+        cssW = Math.max(280, Math.floor(r.width));
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(cssW * dpr);
+        canvas.style.width = cssW + "px";
+        canvas.style.height = cssW + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const w = cssW;
+        const cell = w / N;
+        ctx.fillStyle = GROUT;
+        ctx.fillRect(0, 0, w, w);
+        ctx.strokeStyle = "rgba(18,48,72,0.10)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= N; i++) {
+          ctx.beginPath();
+          ctx.moveTo(i * cell, 0);
+          ctx.lineTo(i * cell, w);
+          ctx.moveTo(0, i * cell);
+          ctx.lineTo(w, i * cell);
+          ctx.stroke();
+        }
+        for (let y = 0; y < N; y++) {
+          for (let x = 0; x < N; x++) {
+            const t = cells[y * N + x];
+            if (!t) continue;
+            ctx.save();
+            ctx.translate((x + 0.5) * cell, (y + 0.5) * cell);
+            ctx.rotate((t.rot * Math.PI) / 180);
+            drawShape(t.shape, t.color, cell);
+            ctx.restore();
+          }
+        }
+      }
+
+      function cellAt(e) {
+        const r = canvas.getBoundingClientRect();
+        const x = Math.floor(((e.clientX - r.left) / r.width) * N);
+        const y = Math.floor(((e.clientY - r.top) / r.height) * N);
+        if (x < 0 || y < 0 || x >= N || y >= N) return -1;
+        return y * N + x;
+      }
+
+      canvas.addEventListener("pointerdown", function (e) {
+        const i = cellAt(e);
+        if (i < 0) return;
+        cells[i] = { shape: shape, color: color, rot: rot };
+        statusEl.textContent = "بلاطة " + ((i % N) + 1) + " × " + (Math.floor(i / N) + 1) + " — دوران " + rot + "°";
+        paint();
+      });
+
+      document.querySelectorAll("button.shape").forEach(function (b) {
+        b.addEventListener("click", function () {
+          shape = b.getAttribute("data-shape");
+          document.querySelectorAll("button.shape").forEach(function (x) {
+            x.setAttribute("aria-pressed", x === b ? "true" : "false");
+          });
+        });
+      });
+      document.querySelectorAll("button.swatch").forEach(function (b) {
+        b.addEventListener("click", function () {
+          color = b.getAttribute("data-color");
+          document.querySelectorAll("button.swatch").forEach(function (x) {
+            x.setAttribute("aria-pressed", x === b ? "true" : "false");
+          });
+        });
+      });
+
+      function rotate() {
+        rot = (rot + 45) % 360;
+        rotBtn.textContent = rot + "°";
+      }
+      rotBtn.addEventListener("click", rotate);
+      window.addEventListener("keydown", function (e) {
+        if (e.key === "r" || e.key === "R") {
+          if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+          e.preventDefault();
+          rotate();
+        }
+      });
+
+      document.getElementById("wipe").addEventListener("click", function () {
+        for (let i = 0; i < cells.length; i++) cells[i] = null;
+        statusEl.textContent = "لوح نظيف.";
+        paint();
+      });
+      document.getElementById("export").addEventListener("click", function () {
+        paint();
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = "zellige.png";
+        a.click();
+        statusEl.textContent = "حُفظت الصورة.";
+      });
+
+      window.addEventListener("resize", paint);
+      paint();
+    })();
+  </script>
+</body>
+</html>

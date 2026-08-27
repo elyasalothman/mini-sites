@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hourglass — ساعة رمل</title>
+  <meta name="description" content="A particle hourglass: hundreds of grains, gravity, a bottleneck, and a flip." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --oak: #6a5a40;
+      --paper: #f4eee4;
+      --ink: #2a2218;
+      --sand: #1a1410;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Figtree", system-ui, sans-serif;
+      background:
+        radial-gradient(800px 400px at 50% 0%, #fff8ee, transparent 50%),
+        var(--paper);
+      color: var(--ink);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .home {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 20;
+      font-size: 0.75rem;
+      color: var(--ink);
+      text-decoration: none;
+      opacity: 0.4;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 10px;
+    }
+    .home:hover, .home:focus-visible { opacity: 1; }
+    header {
+      text-align: center;
+      padding: 48px 16px 8px;
+    }
+    h1 {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: clamp(2rem, 7vw, 3.2rem);
+      font-weight: 600;
+      font-variation-settings: "opsz" 72;
+    }
+    header p {
+      font-family: "Fraunces", serif;
+      font-style: italic;
+      opacity: 0.6;
+      margin-top: 4px;
+    }
+    .wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 320px;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: min(78vw, 340px);
+      height: min(112vw, 480px);
+      max-height: 62dvh;
+    }
+    .bar {
+      width: min(92vw, 420px);
+      padding: 8px 16px 24px;
+      display: grid;
+      gap: 10px;
+    }
+    .times, .actions {
+      display: grid;
+      gap: 8px;
+    }
+    .times { grid-template-columns: repeat(3, 1fr); }
+    .actions { grid-template-columns: 1fr 1fr; }
+    button {
+      min-height: 44px;
+      border: 1px solid var(--oak);
+      background: transparent;
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    button[aria-pressed="true"], button.primary {
+      background: var(--oak);
+      color: var(--paper);
+    }
+    .read {
+      text-align: center;
+      font-family: "Fraunces", serif;
+      font-size: 1.15rem;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      canvas { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="home" href="../">الخزانة</a>
+  <header>
+    <h1>Hourglass</h1>
+    <p>ساعة رمل</p>
+  </header>
+  <div class="wrap"><canvas id="c" aria-label="Particle hourglass"></canvas></div>
+  <div class="bar">
+    <p class="read" id="read">1:00 remaining</p>
+    <div class="times" role="group" aria-label="Duration">
+      <button type="button" data-dur="60" aria-pressed="true">1 min</button>
+      <button type="button" data-dur="180" aria-pressed="false">3 min</button>
+      <button type="button" data-dur="300" aria-pressed="false">5 min</button>
+    </div>
+    <div class="actions">
+      <button type="button" class="primary" id="flip">Flip</button>
+      <button type="button" id="pause" aria-pressed="false">Pause</button>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const canvas = document.getElementById("c");
+      const read = document.getElementById("read");
+      const pauseBtn = document.getElementById("pause");
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const N = 760;
+      const grains = [];
+      let paused = false;
+      let duration = 60;
+      let remaining = 60;
+      let gravity = 1;
+      let rot = 0;
+      let rotTarget = 0;
+      let flipping = false;
+      let pendingFlipG = false;
+      let cssW = 300, cssH = 440;
+      let passBudget = 0;
+      const R = 2.15;
+
+      function fit() {
+        cssW = canvas.clientWidth;
+        cssH = canvas.clientHeight;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.floor(cssW * dpr));
+        canvas.height = Math.max(1, Math.floor(cssH * dpr));
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return ctx;
+      }
+      let ctx = fit();
+      window.addEventListener("resize", function () { ctx = fit(); });
+
+      function cx() { return cssW / 2; }
+      function cy() { return cssH / 2; }
+      function halfW(y) {
+        const H = cssH * 0.42;
+        const neck = 5.8;
+        const bulb = cssW * 0.28;
+        const ay = Math.abs(y - cy());
+        const neckH = 11;
+        if (ay < neckH) return neck;
+        const t = Math.min(1, (ay - neckH) / Math.max(1, H - neckH));
+        return neck + (bulb - neck) * t;
+      }
+
+      function seed(top) {
+        grains.length = 0;
+        const H = cssH * 0.42;
+        const gap = R * 2.05;
+        const startY = top ? cy() - H + R + 8 : cy() + H - R - 8;
+        const endY = top ? cy() - 16 : cy() + 16;
+        const dir = top ? 1 : -1;
+        let y = startY;
+        let row = 0;
+        while (grains.length < N) {
+          if ((dir > 0 && y > endY) || (dir < 0 && y < endY)) break;
+          const hw = halfW(y) - R - 1;
+          if (hw < R) { y += dir * gap * 0.86; row++; continue; }
+          const cols = Math.max(1, Math.floor((hw * 2) / gap));
+          const offset = (row % 2) * (gap * 0.5);
+          for (let i = 0; i < cols && grains.length < N; i++) {
+            const x = cx() - hw + R + i * gap + offset;
+            if (Math.abs(x - cx()) > hw) continue;
+            grains.push({
+              x: x,
+              y: y + (Math.random() - 0.5) * 0.4,
+              vx: 0,
+              vy: 0,
+              r: R + (Math.random() - 0.5) * 0.35
+            });
+          }
+          y += dir * gap * 0.86;
+          row++;
+        }
+      }
+
+      function constrain(g) {
+        const H = cssH * 0.42;
+        const topB = cy() - H + g.r;
+        const botB = cy() + H - g.r;
+        if (g.y < topB) { g.y = topB; g.vy *= -0.05; g.vx *= 0.6; }
+        if (g.y > botB) { g.y = botB; g.vy *= -0.08; g.vx *= 0.55; }
+        const hw = halfW(g.y) - g.r;
+        const dx = g.x - cx();
+        if (Math.abs(dx) > hw) {
+          g.x = cx() + Math.sign(dx || 1) * hw;
+          g.vx *= -0.04;
+          g.vy *= 0.62;
+        }
+      }
+
+      function step(dt) {
+        const gAcc = 380 * gravity;
+        const flow = N / duration;
+        passBudget += dt * flow;
+        const neckY = cy();
+
+        for (let i = 0; i < grains.length; i++) {
+          const g = grains[i];
+          g.vy += gAcc * dt;
+          g.vx *= 0.985;
+          g.vy *= 0.995;
+          const spd = Math.hypot(g.vx, g.vy);
+          if (spd < 18) {
+            g.vx *= 0.9;
+            g.vy *= 0.92;
+          }
+          g.x += g.vx * dt;
+          g.y += g.vy * dt;
+
+          const goingDown = gravity > 0;
+          const inNeck = Math.abs(g.y - neckY) < 16 && Math.abs(g.x - cx()) < 12;
+          if (inNeck) {
+            const crossing = goingDown ? (g.vy > 0 && g.y < neckY + 3) : (g.vy < 0 && g.y > neckY - 3);
+            if (crossing && passBudget < 1) {
+              g.y = goingDown ? neckY - 7 : neckY + 7;
+              g.vy = 0;
+              g.vx *= 0.5;
+            } else if (crossing && passBudget >= 1) {
+              passBudget -= 1;
+            }
+          }
+          constrain(g);
+        }
+
+        const cell = 6;
+        const buckets = new Map();
+        function key(ix, iy) { return ix + ":" + iy; }
+        for (let i = 0; i < grains.length; i++) {
+          const g = grains[i];
+          const k = key((g.x / cell) | 0, (g.y / cell) | 0);
+          let arr = buckets.get(k);
+          if (!arr) { arr = []; buckets.set(k, arr); }
+          arr.push(i);
+        }
+        function collide(i, j) {
+          const a = grains[i], b = grains[j];
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const dist = Math.hypot(dx, dy) || 0.0001;
+          const minD = a.r + b.r;
+          if (dist < minD) {
+            const nx = dx / dist, ny = dy / dist;
+            const overlap = (minD - dist) * 0.5;
+            a.x -= nx * overlap; a.y -= ny * overlap;
+            b.x += nx * overlap; b.y += ny * overlap;
+            const rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+            if (rel < 0) {
+              const imp = rel * 0.22;
+              a.vx += imp * nx; a.vy += imp * ny;
+              b.vx -= imp * nx; b.vy -= imp * ny;
+            }
+          }
+        }
+        for (let pass = 0; pass < 2; pass++) {
+          for (let i = 0; i < grains.length; i++) {
+            const g = grains[i];
+            const ix = (g.x / cell) | 0;
+            const iy = (g.y / cell) | 0;
+            for (let oy = -1; oy <= 1; oy++) {
+              for (let ox = -1; ox <= 1; ox++) {
+                const arr = buckets.get(key(ix + ox, iy + oy));
+                if (!arr) continue;
+                for (let k = 0; k < arr.length; k++) {
+                  if (arr[k] > i) collide(i, arr[k]);
+                }
+              }
+            }
+          }
+        }
+        for (let i = 0; i < grains.length; i++) constrain(grains[i]);
+
+        let topCount = 0;
+        for (let i = 0; i < grains.length; i++) {
+          if ((gravity > 0 && grains[i].y < neckY - 4) || (gravity < 0 && grains[i].y > neckY + 4)) topCount++;
+        }
+        remaining = (topCount / N) * duration;
+      }
+
+      function drawGlass() {
+        const x = cx(), y = cy();
+        const H = cssH * 0.42;
+        const bulb = cssW * 0.28;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rot);
+        ctx.translate(-x, -y);
+
+        ctx.strokeStyle = "#6a5a40";
+        ctx.lineWidth = 11;
+        ctx.lineCap = "square";
+        ctx.beginPath();
+        ctx.moveTo(x - bulb - 10, y - H - 8);
+        ctx.lineTo(x + bulb + 10, y - H - 8);
+        ctx.moveTo(x - bulb - 10, y + H + 8);
+        ctx.lineTo(x + bulb + 10, y + H + 8);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(255,255,255,0.22)";
+        ctx.beginPath();
+        ctx.moveTo(x - bulb, y - H);
+        ctx.lineTo(x + bulb, y - H);
+        ctx.lineTo(x + 5.5, y);
+        ctx.lineTo(x + bulb, y + H);
+        ctx.lineTo(x - bulb, y + H);
+        ctx.lineTo(x - 5.5, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "rgba(90,80,60,0.4)";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(x - bulb + 1, y - H + 1);
+        ctx.lineTo(x + bulb - 1, y - H + 1);
+        ctx.lineTo(x + 5, y);
+        ctx.lineTo(x + bulb - 1, y + H - 1);
+        ctx.lineTo(x - bulb + 1, y + H - 1);
+        ctx.lineTo(x - 5, y);
+        ctx.closePath();
+        ctx.clip();
+        for (let i = 0; i < grains.length; i++) {
+          const g = grains[i];
+          ctx.fillStyle = i % 5 === 0 ? "#2a2018" : "#14110e";
+          ctx.beginPath();
+          ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+
+        ctx.strokeStyle = "rgba(255,255,255,0.28)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x - bulb + 8, y - H + 10);
+        ctx.lineTo(x - 14, y - 8);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      function fmt(sec) {
+        const s = Math.max(0, Math.ceil(sec));
+        const m = Math.floor(s / 60);
+        const r = s % 60;
+        return m + ":" + String(r).padStart(2, "0") + " remaining";
+      }
+
+      document.querySelectorAll("[data-dur]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          duration = Number(btn.getAttribute("data-dur"));
+          document.querySelectorAll("[data-dur]").forEach(function (b) {
+            b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+          });
+          seed(true);
+          remaining = duration;
+          gravity = 1;
+          rot = 0;
+          rotTarget = 0;
+          passBudget = 0;
+          flipping = false;
+          pendingFlipG = false;
+        });
+      });
+      document.getElementById("flip").addEventListener("click", function () {
+        if (flipping) return;
+        flipping = true;
+        pendingFlipG = true;
+        rotTarget += Math.PI;
+        passBudget = 0;
+        if (reduce) {
+          rot = rotTarget;
+          gravity *= -1;
+          seed(gravity > 0);
+          remaining = duration;
+          flipping = false;
+          pendingFlipG = false;
+        }
+      });
+      pauseBtn.addEventListener("click", function () {
+        paused = !paused;
+        pauseBtn.setAttribute("aria-pressed", paused ? "true" : "false");
+        pauseBtn.textContent = paused ? "Resume" : "Pause";
+      });
+
+      seed(true);
+      let seededAt = cssW;
+
+      let last = performance.now();
+      function loop(now) {
+        const dt = Math.min(0.033, (now - last) / 1000);
+        last = now;
+        if (cssW > 40 && Math.abs(cssW - seededAt) > 40) {
+          seed(gravity > 0);
+          seededAt = cssW;
+        }
+        if (!paused && !flipping) step(dt);
+        if (flipping) {
+          rot += (rotTarget - rot) * Math.min(1, dt * 7);
+          if (Math.abs(rotTarget - rot) < 0.02) {
+            rot = rotTarget;
+            if (pendingFlipG) {
+              gravity *= -1;
+              seed(gravity > 0);
+              remaining = duration;
+              passBudget = 0;
+              pendingFlipG = false;
+            }
+            flipping = false;
+          }
+        }
+        ctx.clearRect(0, 0, cssW, cssH);
+        drawGlass();
+        read.textContent = fmt(remaining);
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>

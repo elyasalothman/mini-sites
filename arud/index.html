@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>عروض — Arud</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f4ead8;
+      --ink: #2a1c14;
+      --rust: #8a4a28;
+      --rule: #d4c4a8;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--paper); color: var(--ink); }
+    body {
+      font-family: Amiri, "Noto Naskh Arabic", serif;
+      min-height: 100dvh;
+    }
+    .vault {
+      position: fixed;
+      bottom: 10px;
+      inset-inline-start: 14px;
+      z-index: 20;
+      color: var(--rust);
+      text-decoration: none;
+      font-size: 0.85rem;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.5;
+    }
+    .vault:hover, .vault:focus-visible { opacity: 1; }
+    main {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 1.3rem 1.1rem 5.6rem;
+    }
+    header h1 {
+      margin: 0;
+      font-size: clamp(2rem, 8vw, 2.8rem);
+      font-weight: 700;
+      color: var(--rust);
+    }
+    header p {
+      margin: 0.25rem 0 1.1rem;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+    .bahrs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+    .bahrs button {
+      font-family: inherit;
+      font-size: 1.05rem;
+      min-height: 44px;
+      padding: 0 0.9rem;
+      cursor: pointer;
+      touch-action: manipulation;
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent);
+    }
+    .bahrs button[aria-pressed="true"] {
+      background: var(--ink);
+      color: var(--paper);
+      border-color: var(--ink);
+    }
+    .card {
+      border: 1px solid var(--rule);
+      padding: 1rem 1rem 1.1rem;
+      background: color-mix(in srgb, #fff 35%, var(--paper));
+      margin-bottom: 1rem;
+    }
+    .card h2 { margin: 0 0 0.35rem; font-size: 1.35rem; }
+    .tafail {
+      font-size: 1.35rem;
+      margin: 0.2rem 0 0.6rem;
+      letter-spacing: 0.04em;
+    }
+    .explain { margin: 0; line-height: 1.75; font-size: 1.08rem; }
+    .scan {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin: 0.8rem 0 0.3rem;
+      font-size: 1.6rem;
+      min-height: 2rem;
+    }
+    .scan b {
+      font-weight: 400;
+      min-width: 1.15em;
+      text-align: center;
+      border-bottom: 2px solid transparent;
+    }
+    .scan b.ok { border-bottom-color: #2a6a38; color: #2a6a38; }
+    .scan b.bad { border-bottom-color: var(--rust); color: var(--rust); }
+    .scan b.wait { opacity: 0.35; }
+    .yours { font-size: 1.05rem; color: var(--rust); min-height: 1.4em; margin: 0.2rem 0 0; }
+    .pad-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.7rem; }
+    #pad {
+      width: min(220px, 70vw);
+      height: min(220px, 38dvh);
+      min-height: 160px;
+      border-radius: 50%;
+      border: 3px solid var(--rust);
+      background: radial-gradient(circle at 40% 35%, #f7f0e0, #e4d2b4 62%, #c8a078);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 1.45rem;
+      cursor: pointer;
+      touch-action: manipulation;
+      box-shadow: inset 0 8px 16px rgba(255,255,255,0.4), 0 8px 18px rgba(80,40,20,0.12);
+    }
+    #pad:active { transform: scale(0.97); }
+    .hint { font-size: 1rem; text-align: center; margin: 0; opacity: 0.75; }
+    .score {
+      text-align: center;
+      font-size: 1.3rem;
+      margin: 0.4rem 0 0;
+      min-height: 1.5em;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      justify-content: center;
+      margin-top: 0.6rem;
+    }
+    .row button {
+      font-family: inherit;
+      font-size: 1.05rem;
+      min-height: 44px;
+      padding: 0 1rem;
+      cursor: pointer;
+      touch-action: manipulation;
+      background: var(--ink);
+      color: var(--paper);
+      border: none;
+    }
+    .row button.ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--rule);
+    }
+    .legend { font-size: 0.95rem; text-align: center; opacity: 0.7; margin: 0.3rem 0 0; }
+    @media (prefers-reduced-motion: reduce) {
+      #pad:active { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="vault" href="../">الخزانة</a>
+  <main>
+    <header>
+      <h1>عروض</h1>
+      <p>درّب أذنك على تفاعيل البيت. النقرة الأولى بداية. كل فترة بعدها مقطع: القصيرة ˘ والطويلة ـ. عتبة الطويل نحو ٤٠٠ ملي ثانية.</p>
+    </header>
+    <div class="bahrs" id="bahrs" role="group" aria-label="اختر البحر"></div>
+    <section class="card">
+      <h2 id="bahr-name">الطويل</h2>
+      <p class="tafail" id="tafail"></p>
+      <p class="explain" id="explain"></p>
+      <div class="scan" id="expect" aria-label="الوزن المطلوب"></div>
+      <p class="yours" id="yours"></p>
+    </section>
+    <div class="pad-wrap">
+      <button type="button" id="pad">انقر الوزن</button>
+      <p class="hint">طابق تفاعيل شطر واحد. النقرات = عدد المقاطع + واحدة للبدء.</p>
+      <p class="legend">˘ قصير &nbsp; · &nbsp; ـ طويل</p>
+      <p class="score" id="score"></p>
+      <div class="row">
+        <button type="button" class="ghost" id="reset">أعد الشطر</button>
+        <button type="button" class="ghost" id="demo">عرض الوزن</button>
+      </div>
+    </div>
+  </main>
+  <script>
+    (function () {
+      const S = "u";
+      const L = "-";
+      const BAHRS = [
+        {
+          id: "tawil",
+          name: "الطويل",
+          short: "طويل",
+          tafail: "فعولن مفاعيلن فعولن",
+          pattern: [S, L, L, S, L, L, L, S, L, L],
+          explain: "أطوَل البحور جريانًا في الفصيح، يسع الفخر والرثاء. الشطر الكامل: فعولن مفاعيلن فعولن مفاعلن. هنا صدر الشطر في عشرة مقاطع."
+        },
+        {
+          id: "kamil",
+          name: "الكامل",
+          short: "كامل",
+          tafail: "متفاعلن متفاعلن",
+          pattern: [S, S, L, S, L, S, S, L, S, L],
+          explain: "سُمّي كاملًا لكمال حركاته. البيت: متفاعلن ستّ مرات. النقر هنا على تفعيلتين، عشر فترات بعد البداية."
+        },
+        {
+          id: "wafir",
+          name: "الوافر",
+          short: "وافر",
+          tafail: "مفاعلتن مفاعلتن",
+          pattern: [S, L, S, S, L, S, L, S, S, L],
+          explain: "وافر الأجزاء، قريب من الكامل في الحركة. أصله مفاعلتن مفاعلتن فعولن. نأخذ التفعيلتين الأوليين."
+        },
+        {
+          id: "basit",
+          name: "البسيط",
+          short: "بسيط",
+          tafail: "مستفعلن فاعلن مستفعلن",
+          pattern: [L, L, S, L, S, L, L, L, L, S, L],
+          explain: "سُمّي بسيطًا لانبساط أسبابه. الشطر: مستفعلن فاعلن مستفعلن فاعلن. هنا إحدى عشرة فترة على صدره."
+        },
+        {
+          id: "ramal",
+          name: "الرمل",
+          short: "رمل",
+          tafail: "فاعلاتن فاعلاتن",
+          pattern: [L, S, L, L, L, S, L, L],
+          explain: "سُمّي رملًا لأنه يُشبه نسج الحصير في تداخل أسبابه. الشطر: فاعلاتن فاعلاتن فاعلن. تفعيلتان، ثماني فترات."
+        }
+      ];
+      const THRESH = 400;
+      const bahrsEl = document.getElementById("bahrs");
+      const nameEl = document.getElementById("bahr-name");
+      const tafailEl = document.getElementById("tafail");
+      const explainEl = document.getElementById("explain");
+      const expectEl = document.getElementById("expect");
+      const yoursEl = document.getElementById("yours");
+      const scoreEl = document.getElementById("score");
+      const pad = document.getElementById("pad");
+      let bi = 0;
+      let taps = [];
+      let demoTimer = 0;
+      let locked = false;
+
+      function mark(ch) { return ch === L ? "ـ" : "˘"; }
+
+      function renderExpect(user) {
+        const p = BAHRS[bi].pattern;
+        expectEl.replaceChildren();
+        for (let i = 0; i < p.length; i++) {
+          const b = document.createElement("b");
+          b.textContent = mark(p[i]);
+          if (user && i < user.length) b.className = user[i] === p[i] ? "ok" : "bad";
+          else if (user) b.className = "wait";
+          expectEl.appendChild(b);
+        }
+      }
+
+      function setBahr(i) {
+        window.clearTimeout(demoTimer);
+        bi = i;
+        const b = BAHRS[bi];
+        nameEl.textContent = b.name;
+        tafailEl.textContent = b.tafail;
+        explainEl.textContent = b.explain;
+        taps = [];
+        locked = false;
+        yoursEl.textContent = "";
+        scoreEl.textContent = "";
+        pad.textContent = "انقر الوزن";
+        renderExpect(null);
+        Array.prototype.forEach.call(bahrsEl.querySelectorAll("button"), function (btn, idx) {
+          btn.setAttribute("aria-pressed", idx === i ? "true" : "false");
+        });
+      }
+
+      BAHRS.forEach(function (b, i) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = b.short;
+        btn.setAttribute("aria-pressed", i === 0 ? "true" : "false");
+        btn.addEventListener("click", function () { setBahr(i); });
+        bahrsEl.appendChild(btn);
+      });
+
+      function intervalsToPattern(times) {
+        const out = [];
+        for (let i = 1; i < times.length; i++) {
+          out.push(times[i] - times[i - 1] >= THRESH ? L : S);
+        }
+        return out;
+      }
+
+      function finish(user) {
+        const p = BAHRS[bi].pattern;
+        let ok = 0;
+        for (let i = 0; i < p.length; i++) if (user[i] === p[i]) ok++;
+        const pct = Math.round((ok / p.length) * 100);
+        scoreEl.textContent = "الدقة: " + pct + "%  (" + ok + " من " + p.length + ")";
+        yoursEl.textContent = "نقرك: " + user.map(mark).join(" ");
+        renderExpect(user);
+        pad.textContent = "أعد أو غيّر البحر";
+        locked = true;
+      }
+
+      pad.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        if (locked) return;
+        const now = performance.now();
+        const need = BAHRS[bi].pattern.length;
+        if (!taps.length) {
+          taps = [now];
+          yoursEl.textContent = "بدأت. أكمل " + need + " مقاطع.";
+          pad.textContent = "١ / " + (need + 1);
+          renderExpect([]);
+          return;
+        }
+        taps.push(now);
+        const user = intervalsToPattern(taps);
+        pad.textContent = taps.length + " / " + (need + 1);
+        yoursEl.textContent = user.map(mark).join(" ");
+        renderExpect(user);
+        if (user.length >= need) finish(user.slice(0, need));
+      });
+
+      document.getElementById("reset").addEventListener("click", function () {
+        window.clearTimeout(demoTimer);
+        taps = [];
+        locked = false;
+        yoursEl.textContent = "";
+        scoreEl.textContent = "";
+        pad.textContent = "انقر الوزن";
+        renderExpect(null);
+      });
+
+      document.getElementById("demo").addEventListener("click", function () {
+        window.clearTimeout(demoTimer);
+        taps = [];
+        locked = true;
+        const p = BAHRS[bi].pattern;
+        let i = 0;
+        renderExpect([]);
+        yoursEl.textContent = "عرض بصري للوزن — لا يُحتسب.";
+        scoreEl.textContent = "";
+        function step() {
+          if (i > p.length) {
+            locked = false;
+            renderExpect(null);
+            pad.textContent = "انقر الوزن";
+            yoursEl.textContent = "";
+            return;
+          }
+          const shown = p.slice(0, i);
+          renderExpect(shown);
+          const marks = expectEl.querySelectorAll("b");
+          for (let k = 0; k < shown.length; k++) marks[k].className = "ok";
+          pad.textContent = i === 0 ? "بداية" : mark(p[i - 1]);
+          i++;
+          const wait = i === 1 ? 280 : (i - 1 <= p.length ? (p[i - 2] === L ? 520 : 240) : 500);
+          demoTimer = window.setTimeout(step, wait);
+        }
+        step();
+      });
+
+      setBahr(0);
+    })();
+  </script>
+</body>
+</html>

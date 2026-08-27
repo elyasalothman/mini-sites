@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>برجيل — Barjeel</title>
+  <meta name="description" content="برج رياح يبرّد بيتًا: سرعة الريح، اتجاه الفتحة، وحرارة النهار. مقطع معماري حي." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --gulf: #3a7a8a;
+      --adobe: #c4b090;
+      --paper: #e8f0f4;
+      --ink: #1c3040;
+      --wind: #f4f8fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Cairo", "IBM Plex Sans", sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100dvh;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 1fr auto;
+    }
+    .home {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      z-index: 20;
+      font-size: 0.78rem;
+      color: var(--ink);
+      text-decoration: none;
+      opacity: 0.4;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 10px;
+    }
+    .home:hover, .home:focus-visible { opacity: 1; }
+    header {
+      padding: 48px 20px 8px;
+      text-align: center;
+    }
+    .latin {
+      font-family: "IBM Plex Sans", sans-serif;
+      font-size: 0.7rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      opacity: 0.5;
+    }
+    h1 {
+      font-size: clamp(2rem, 8vw, 3.2rem);
+      font-weight: 700;
+      line-height: 1.1;
+      margin-top: 4px;
+    }
+    header .sub {
+      font-size: 0.95rem;
+      opacity: 0.65;
+      margin-top: 4px;
+    }
+    .stage { min-height: 320px; position: relative; }
+    @media (max-width: 859px) {
+      .stage { min-height: 42dvh; }
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    .temps {
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      font-size: 0.85rem;
+    }
+    .temps strong { font-size: 1.35rem; }
+    aside {
+      padding: 12px 18px 22px;
+      display: grid;
+      gap: 12px;
+      max-width: 640px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    label {
+      display: grid;
+      gap: 2px;
+      font-size: 0.85rem;
+    }
+    label em {
+      font-style: normal;
+      font-family: "IBM Plex Sans", sans-serif;
+      font-size: 0.72rem;
+      opacity: 0.55;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 44px;
+      accent-color: var(--gulf);
+    }
+    .dirs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .dirs button {
+      min-height: 44px;
+      border: 1px solid #b8c8d0;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+    }
+    .dirs button[aria-pressed="true"] {
+      background: var(--gulf);
+      color: #fff;
+      border-color: var(--gulf);
+    }
+    .model {
+      font-size: 0.75rem;
+      opacity: 0.6;
+      line-height: 1.5;
+    }
+    @media (min-width: 860px) {
+      body {
+        grid-template-columns: 1fr 320px;
+        grid-template-rows: auto 1fr;
+      }
+      header { grid-column: 1 / -1; }
+      aside {
+        grid-column: 2;
+        grid-row: 2;
+        border-right: 1px solid #c8d4da;
+        padding: 16px 20px;
+        max-width: none;
+        align-content: start;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="home" href="../">الخزانة</a>
+  <header>
+    <p class="latin">Wind tower · badgir</p>
+    <h1>برجيل</h1>
+    <p class="sub">مقطع بيت خليجي يبرّده برج الريح</p>
+  </header>
+  <div class="stage">
+    <canvas id="c" aria-label="مقطع البرجيل والغرفة"></canvas>
+    <div class="temps">
+      <div>خارجًا<br /><strong id="outT">36°</strong></div>
+      <div style="text-align:left">الغرفة<br /><strong id="inT">29°</strong></div>
+    </div>
+  </div>
+  <aside>
+    <label>
+      سرعة الريح <em>Wind speed</em>
+      <input id="wind" type="range" min="0" max="14" step="0.1" value="6" />
+    </label>
+    <div>
+      <p style="font-size:0.85rem;margin-bottom:6px">اتجاه الريح نسبةً لفتحة البرج <em style="opacity:.55;font-family:IBM Plex Sans,sans-serif;font-size:0.72rem">opening</em></p>
+      <div class="dirs" role="group" aria-label="اتجاه الريح">
+        <button type="button" data-dir="N" aria-pressed="true">شمال</button>
+        <button type="button" data-dir="E" aria-pressed="false">شرق</button>
+        <button type="button" data-dir="S" aria-pressed="false">جنوب</button>
+        <button type="button" data-dir="W" aria-pressed="false">غرب</button>
+      </div>
+    </div>
+    <label>
+      ساعة النهار <em>Time of day</em>
+      <input id="hour" type="range" min="0" max="23.9" step="0.1" value="15" />
+    </label>
+    <label>
+      ارتفاع البرج (م) <em>Tower height</em>
+      <input id="height" type="range" min="6" max="22" step="0.5" value="12" />
+    </label>
+    <p class="model" id="explain">المواءمة كاملة: هواء يندفع في الفتحة ويهبط في البئر.</p>
+  </aside>
+  <script>
+    (function () {
+      const canvas = document.getElementById("c");
+      const windEl = document.getElementById("wind");
+      const hourEl = document.getElementById("hour");
+      const heightEl = document.getElementById("height");
+      const outEl = document.getElementById("outT");
+      const inEl = document.getElementById("inT");
+      const explain = document.getElementById("explain");
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let dir = "N";
+      let t = 0;
+      const arrows = [];
+
+      document.querySelectorAll(".dirs button").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          dir = btn.getAttribute("data-dir");
+          document.querySelectorAll(".dirs button").forEach(function (b) {
+            b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+          });
+        });
+      });
+
+      function fit() {
+        const r = canvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.floor(r.width * dpr));
+        canvas.height = Math.max(1, Math.floor(r.height * dpr));
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return ctx;
+      }
+      let ctx = fit();
+      window.addEventListener("resize", function () { ctx = fit(); });
+
+      function outsideTemp(hour) {
+        return 36 + 8 * Math.cos(((hour - 15) / 12) * Math.PI);
+      }
+      function alignment(d) {
+        if (d === "N") return 1;
+        if (d === "S") return 0.22;
+        return 0.45;
+      }
+      function coolingDelta(wind, align, hgt, hour) {
+        const hN = (hgt - 6) / 16;
+        const stack = 0.35 + 0.65 * hN;
+        const catchF = wind * (0.35 + 0.65 * align) * stack;
+        const night = hour < 7 || hour > 20 ? 1.4 : 1;
+        return Math.min(16, catchF * 0.85 * night + 1.2);
+      }
+
+      function skyColor(hour) {
+        const day = 1 - Math.abs(hour - 13) / 13;
+        const r = Math.round(180 + 40 * day);
+        const g = Math.round(200 + 20 * day);
+        const b = Math.round(210 + 10 * day);
+        return "rgb(" + r + "," + g + "," + b + ")";
+      }
+
+      function lerp(a, b, t) { return a + (b - a) * t; }
+
+      function drawHouse(w, h, roomT, outT, wind, align, hgt) {
+        const ground = h * 0.82;
+        const roomH = h * 0.34;
+        const roomL = w * 0.18;
+        const roomR = w * 0.78;
+        const roomTopy = ground - roomH;
+        const towerW = w * 0.12;
+        const towerX = roomR - towerW * 0.2;
+        const towerTop = ground - roomH - h * (0.18 + (hgt - 6) / 22 * 0.22);
+        const openingFace = align > 0.7;
+
+        ctx.fillStyle = skyColor(Number(hourEl.value));
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = "#d8c8a8";
+        ctx.fillRect(0, ground, w, h - ground);
+        ctx.fillStyle = "#c4b090";
+        ctx.fillRect(0, ground - 6, w, 6);
+
+        const cool = Math.max(0, Math.min(1, (outT - roomT) / 14));
+        const ir = Math.round(lerp(196, 140, cool));
+        const ig = Math.round(lerp(168, 186, cool));
+        const ib = Math.round(lerp(140, 196, cool));
+        ctx.fillStyle = "rgb(" + ir + "," + ig + "," + ib + ")";
+        ctx.fillRect(roomL, roomTopy, roomR - roomL, roomH);
+
+        ctx.fillStyle = "#b89a72";
+        ctx.fillRect(roomL - 10, roomTopy - 8, 14, roomH + 8);
+        ctx.fillRect(roomR - 4, roomTopy - 8, 14, roomH + 8);
+        ctx.fillRect(roomL - 10, roomTopy - 14, roomR - roomL + 24, 16);
+        ctx.beginPath();
+        ctx.moveTo(roomL - 18, roomTopy);
+        ctx.lineTo((roomL + roomR) / 2, roomTopy - h * 0.08);
+        ctx.lineTo(roomR + 18, roomTopy);
+        ctx.closePath();
+        ctx.fillStyle = "#9a7a54";
+        ctx.fill();
+
+        ctx.fillStyle = "#c4b090";
+        ctx.fillRect(towerX, towerTop, towerW, ground - towerTop);
+        ctx.fillStyle = "#a88864";
+        ctx.fillRect(towerX - 4, towerTop - 10, towerW + 8, 14);
+        ctx.fillStyle = "#8aa8b0";
+        const openY = towerTop + 16;
+        if (openingFace) {
+          ctx.fillRect(towerX + towerW - 4, openY, 8, 22);
+        } else {
+          ctx.fillRect(towerX - 4, openY, 8, 18);
+        }
+        ctx.strokeStyle = "rgba(28,48,64,0.25)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(towerX + towerW / 2, towerTop + 8);
+        ctx.lineTo(towerX + towerW / 2, roomTopy + 20);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(towerX + 8, towerTop + 20);
+        ctx.lineTo(towerX + towerW - 8, towerTop + 40);
+        ctx.moveTo(towerX + towerW - 8, towerTop + 20);
+        ctx.lineTo(towerX + 8, towerTop + 40);
+        ctx.stroke();
+
+        ctx.fillStyle = "#d8c8b0";
+        ctx.fillRect(roomL + 16, ground - 18, 54, 14);
+        ctx.fillRect(roomL + 80, ground - 18, 54, 14);
+        ctx.beginPath();
+        ctx.ellipse(roomL + 40, ground - 4, 16, 5, 0, 0, Math.PI * 2);
+        ctx.fillStyle = "#6a9aaa";
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(28,48,64,0.15)";
+        for (let y = roomTopy + 20; y < ground; y += 18) {
+          ctx.beginPath();
+          ctx.moveTo(roomL + 8, y);
+          ctx.lineTo(roomR - 8, y);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = "#1c3040";
+        ctx.font = "11px IBM Plex Sans, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("برجيل", towerX + towerW / 2, towerTop - 16);
+        ctx.fillText("مجلس", (roomL + roomR) / 2, roomTopy + 18);
+
+        return {
+          towerX: towerX,
+          towerW: towerW,
+          towerTop: towerTop,
+          openY: openY,
+          roomL: roomL,
+          roomR: roomR,
+          roomTopy: roomTopy,
+          ground: ground,
+          intake: openingFace
+        };
+      }
+
+      function ensureArrows(geo, n) {
+        while (arrows.length < n) {
+          arrows.push({ s: Math.random() });
+        }
+        while (arrows.length > n) arrows.pop();
+      }
+
+      function arrowPath(geo, s, intake) {
+        if (intake) {
+          if (s < 0.22) {
+            const u = s / 0.22;
+            return { x: geo.towerX + geo.towerW + 30 - u * 34, y: geo.openY + 10 };
+          }
+          if (s < 0.55) {
+            const u = (s - 0.22) / 0.33;
+            return { x: geo.towerX + geo.towerW * 0.5, y: geo.openY + 12 + u * (geo.ground - 40 - geo.openY) };
+          }
+          const u = (s - 0.55) / 0.45;
+          return { x: geo.towerX - u * (geo.towerX - geo.roomL - 40), y: geo.ground - 36 };
+        }
+        if (s < 0.3) {
+          const u = s / 0.3;
+          return { x: geo.roomL + 20 + u * 50, y: geo.ground - 28 };
+        }
+        if (s < 0.65) {
+          const u = (s - 0.3) / 0.35;
+          return { x: geo.towerX + geo.towerW * 0.5, y: geo.ground - 40 - u * (geo.ground - 40 - geo.towerTop - 20) };
+        }
+        const u = (s - 0.65) / 0.35;
+        return { x: geo.towerX + geo.towerW * 0.5 + u * 40, y: geo.towerTop + 18 };
+      }
+
+      function draw() {
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        const wind = Number(windEl.value);
+        const hour = Number(hourEl.value);
+        const hgt = Number(heightEl.value);
+        const align = alignment(dir);
+        const outT = outsideTemp(hour);
+        const cool = coolingDelta(wind, align, hgt, hour);
+        const roomT = outT - cool;
+        outEl.textContent = outT.toFixed(1) + "°";
+        inEl.textContent = roomT.toFixed(1) + "°";
+        if (align > 0.8) explain.textContent = "المواءمة كاملة: الريح تدخل الفتحة وتهبط في البئر عبر المجلس.";
+        else if (align > 0.3) explain.textContent = "فتحة جانبية: تيار أضعف، والتبريد جزئي.";
+        else explain.textContent = "الريح معاكسة: البرج يعمل بالشفط، الهواء يصعد ويخرج.";
+
+        const geo = drawHouse(w, h, roomT, outT, wind, align, hgt);
+        const n = 8 + Math.round(wind * 1.4);
+        ensureArrows(geo, n);
+        const speed = (reduce ? 0.04 : 0.12) * (0.3 + wind / 10);
+        ctx.fillStyle = "rgba(244,248,250,0.9)";
+        ctx.strokeStyle = "rgba(58,122,138,0.85)";
+        ctx.lineWidth = 1.4;
+        for (let i = 0; i < arrows.length; i++) {
+          arrows[i].s = (arrows[i].s + speed * (0.7 + (i % 5) * 0.08)) % 1;
+          const p = arrowPath(geo, arrows[i].s, geo.intake);
+          const p2 = arrowPath(geo, (arrows[i].s + 0.03) % 1, geo.intake);
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(p2.x, p2.y, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      let last = performance.now();
+      function loop(now) {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        t += dt;
+        draw();
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>

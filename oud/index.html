@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>عود — خمس كورسات</title>
+  <meta name="description" content="عود تفاعلي: اقطف خمسة كورسات، دوزن كل وتر بنصف درجة، واكتم الصوت.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root { --wood: #2a1610; --amber: #c48a3a; --cream: #f0d2a8; --fret: #0c0a08; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; background: var(--wood); color: var(--cream); }
+    body {
+      font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .room {
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      background:
+        radial-gradient(ellipse at 70% 30%, #3a2218, transparent 50%),
+        linear-gradient(180deg, #1a0e0a, #2a1610 40%, #120a08);
+      padding: 16px 12px 64px;
+    }
+    .inlay {
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+    .inlay h1 {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-size: clamp(2.4rem, 10vw, 4rem);
+      font-weight: 400;
+      letter-spacing: 0.18em;
+      color: var(--amber);
+    }
+    .inlay p { font-size: 0.85rem; opacity: 0.7; margin-top: 4px; }
+    .stage {
+      position: relative;
+      width: min(100%, 720px);
+      margin: 0 auto;
+      height: min(68dvh, 560px);
+    }
+    canvas#oud {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+    .rack {
+      width: min(100%, 720px);
+      margin: 10px auto 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      align-items: stretch;
+    }
+    .course {
+      background: #1a0e0a;
+      border: 1px solid var(--amber);
+      color: var(--cream);
+      padding: 8px 10px;
+      min-width: 112px;
+      min-height: 72px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-family: inherit;
+    }
+    .course strong {
+      font-family: "Instrument Serif", serif;
+      font-size: 1.05rem;
+      color: var(--amber);
+    }
+    .pegs { display: flex; gap: 6px; }
+    .pegs button {
+      min-width: 44px; min-height: 44px;
+      background: #3a2218; color: var(--cream);
+      border: 1px solid var(--amber);
+      font-size: 1.2rem; cursor: pointer; font-family: inherit;
+    }
+    .mute {
+      min-height: 48px; min-width: 88px;
+      background: var(--amber); color: var(--wood);
+      border: 0; cursor: pointer;
+      font-family: inherit; font-weight: 600; padding: 0 16px;
+    }
+    .hint { width: 100%; text-align: center; font-size: 0.78rem; opacity: 0.6; }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="room">
+    <header class="inlay">
+      <h1>عود</h1>
+      <p>خمس كورسات · دوزان راست تقريبي C–F–A–D–G</p>
+    </header>
+    <div class="stage">
+      <canvas id="oud" width="720" height="520" aria-label="عود — اضغط وتراً للعزف"></canvas>
+    </div>
+    <div class="rack" id="rack"></div>
+  </div>
+  <a href="../" style="position:fixed;bottom:12px;inset-inline-start:12px;z-index:50;font-size:11px;letter-spacing:.12em;opacity:.4;color:#f0d2a8;text-decoration:none">الخزانة</a>
+  <script>
+  (function () {
+    const NAMES = ["دو2", "فا2", "لا2", "ري3", "صول3"];
+    const BASE = [65.41, 87.31, 110.00, 146.83, 196.00];
+    const shifts = [0, 0, 0, 0, 0];
+    const vib = [0, 0, 0, 0, 0];
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let ctxAudio = null;
+    let master = null;
+    const voices = [];
+
+    function ensureAudio() {
+      if (ctxAudio) return ctxAudio;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctxAudio = new AC();
+      master = ctxAudio.createGain();
+      master.gain.value = 0.55;
+      master.connect(ctxAudio.destination);
+      return ctxAudio;
+    }
+
+    function freq(i) {
+      return BASE[i] * Math.pow(2, shifts[i] / 12);
+    }
+    function noteLabel(i) {
+      const n = Math.round(69 + 12 * Math.log2(freq(i) / 440));
+      const names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+      const oct = Math.floor(n / 12) - 1;
+      return names[((n % 12) + 12) % 12] + oct;
+    }
+
+    function karplus(f, detune) {
+      const ac = ensureAudio();
+      if (ac.state === "suspended") ac.resume();
+      const sr = ac.sampleRate;
+      const ff = f * Math.pow(2, detune / 1200);
+      const N = Math.max(20, Math.round(sr / ff));
+      const dur = 2.8;
+      const samples = Math.floor(sr * dur);
+      const buf = ac.createBuffer(1, samples, sr);
+      const data = buf.getChannelData(0);
+      const delay = new Float32Array(N);
+      for (let i = 0; i < N; i++) delay[i] = (Math.random() * 2 - 1) * 0.9;
+      let idx = 0, last = 0;
+      const decay = 0.988 + Math.min(0.008, f / 80000);
+      for (let i = 0; i < samples; i++) {
+        const cur = delay[idx];
+        const filtered = (cur + last) * 0.5 * decay;
+        const stretch = cur * 0.15 + filtered * 0.85;
+        data[i] = stretch;
+        delay[idx] = stretch;
+        last = cur;
+        idx = (idx + 1) % N;
+      }
+      const src = ac.createBufferSource();
+      src.buffer = buf;
+      const g = ac.createGain();
+      g.gain.value = 0.7;
+      src.connect(g);
+      g.connect(master);
+      src.start();
+      voices.push({ src, g });
+      src.onended = function () {
+        const k = voices.findIndex(function (v) { return v.src === src; });
+        if (k >= 0) voices.splice(k, 1);
+      };
+      return src;
+    }
+
+    function pluck(i) {
+      ensureAudio();
+      karplus(freq(i), -6);
+      karplus(freq(i), 8);
+      vib[i] = 1;
+    }
+
+    function muteAll() {
+      if (!ctxAudio) return;
+      voices.splice(0).forEach(v => {
+        try { v.src.stop(); } catch (e) {}
+      });
+      for (let i = 0; i < 5; i++) vib[i] = 0;
+    }
+
+    const canvas = document.getElementById("oud");
+    const ctx = canvas.getContext("2d");
+    let W = 720, H = 520;
+    function sizeCanvas() {
+      const r = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(r.width * dpr);
+      canvas.height = Math.round(r.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      W = r.width; H = r.height;
+    }
+    sizeCanvas();
+    addEventListener("resize", sizeCanvas);
+
+    const hits = [];
+
+    function drawOud() {
+      ctx.clearRect(0, 0, W, H);
+      const cx = W * 0.52, cy = H * 0.58;
+      const bw = Math.min(W * 0.42, 210);
+      const bh = Math.min(H * 0.55, 250);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.fillStyle = "#3a1c12";
+      ctx.beginPath();
+      ctx.ellipse(0, 10, bw, bh, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#4a2416";
+      ctx.beginPath();
+      ctx.ellipse(-bw * 0.15, -10, bw * 0.85, bh * 0.82, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#c48a3a";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, -bh * 0.12, bw * 0.22, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, -bh * 0.12, bw * 0.08, 0, Math.PI * 2);
+      ctx.fillStyle = "#0c0a08";
+      ctx.fill();
+
+      const neckH = H * 0.42;
+      const neckW = 28;
+      ctx.fillStyle = "#0c0a08";
+      ctx.fillRect(-neckW / 2, -bh - neckH * 0.15, neckW, neckH);
+      ctx.fillStyle = "#5a3018";
+      const pegY = -bh - neckH * 0.12;
+      ctx.beginPath();
+      ctx.moveTo(-18, pegY);
+      ctx.quadraticCurveTo(-40, pegY - 70, -8, pegY - 95);
+      ctx.quadraticCurveTo(0, pegY - 108, 8, pegY - 95);
+      ctx.quadraticCurveTo(40, pegY - 70, 18, pegY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#c48a3a";
+      for (let p = 0; p < 5; p++) {
+        const py = pegY - 18 - p * 14;
+        ctx.beginPath();
+        ctx.ellipse(-22 - (p % 2) * 4, py, 5, 8, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(22 + (p % 2) * 4, py, 5, 8, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const bridgeY = bh * 0.62;
+      ctx.fillStyle = "#1a0e0a";
+      ctx.fillRect(-42, bridgeY, 84, 8);
+
+      hits.length = 0;
+      const yNut = -bh - 20;
+      const yBr = bridgeY;
+      const tapW = Math.max(28, Math.min(44, (bw * 0.9) / 5));
+      for (let i = 0; i < 5; i++) {
+        const t = (i - 2) / 2;
+        const xA = t * 8;
+        const xB = t * 36;
+        const amp = reduce ? 0 : vib[i] * 5;
+        ctx.strokeStyle = "#f0d2a8";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(xA, yNut);
+        const segs = 18;
+        for (let s = 1; s <= segs; s++) {
+          const u = s / segs;
+          const wob = Math.sin(u * Math.PI) * Math.sin(performance.now() / 40 + i) * amp;
+          ctx.lineTo(xA + (xB - xA) * u + wob, yNut + (yBr - yNut) * u);
+        }
+        ctx.stroke();
+        ctx.lineWidth = 1.1;
+        ctx.globalAlpha = 0.65;
+        ctx.beginPath();
+        ctx.moveTo(xA + 3.2, yNut);
+        for (let s = 1; s <= segs; s++) {
+          const u = s / segs;
+          const wob = Math.sin(u * Math.PI) * Math.sin(performance.now() / 37 + i + 1) * amp;
+          ctx.lineTo(xA + 3.2 + (xB - xA) * u + wob, yNut + (yBr - yNut) * u);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        hits.push({ i, xA: cx + xA, xB: cx + xB, y0: cy + yNut, y1: cy + yBr, w: tapW });
+        vib[i] *= 0.96;
+        if (vib[i] < 0.02) vib[i] = 0;
+      }
+      ctx.restore();
+    }
+
+    function hitTest(cx, cy) {
+      const r = canvas.getBoundingClientRect();
+      const x = cx - r.left, y = cy - r.top;
+      let best = -1, bd = 1e9;
+      hits.forEach(h => {
+        if (y < h.y0 - 8 || y > h.y1 + 8) return;
+        const u = Math.max(0, Math.min(1, (y - h.y0) / (h.y1 - h.y0 || 1)));
+        const sx = h.xA + (h.xB - h.xA) * u;
+        const d = Math.abs(x - sx);
+        if (d < h.w && d < bd) { bd = d; best = h.i; }
+      });
+      return best;
+    }
+
+    canvas.addEventListener("pointerdown", (e) => {
+      const i = hitTest(e.clientX, e.clientY);
+      if (i >= 0) pluck(i);
+    });
+
+    const rack = document.getElementById("rack");
+    function renderRack() {
+      rack.innerHTML = "";
+      for (let i = 0; i < 5; i++) {
+        const d = document.createElement("div");
+        d.className = "course";
+        d.innerHTML = "<strong>" + NAMES[i] + " · " + noteLabel(i) + "</strong>";
+        d.style.cursor = "pointer";
+        d.addEventListener("click", function (e) {
+          if (e.target.closest(".pegs")) return;
+          pluck(i);
+        });
+        const pegs = document.createElement("div");
+        pegs.className = "pegs";
+        const minus = document.createElement("button");
+        minus.type = "button"; minus.textContent = "−"; minus.setAttribute("aria-label", "خفض الوتر");
+        minus.addEventListener("click", () => { shifts[i]--; renderRack(); });
+        const plus = document.createElement("button");
+        plus.type = "button"; plus.textContent = "+"; plus.setAttribute("aria-label", "رفع الوتر");
+        plus.addEventListener("click", () => { shifts[i]++; renderRack(); });
+        pegs.append(minus, plus);
+        d.appendChild(pegs);
+        rack.appendChild(d);
+      }
+      const m = document.createElement("button");
+      m.className = "mute"; m.type = "button"; m.textContent = "كتم";
+      m.addEventListener("click", muteAll);
+      rack.appendChild(m);
+      const h = document.createElement("p");
+      h.className = "hint";
+      h.textContent = "اضغط الوتر على الصندوق أو الرقبة. لا تشغيل تلقائي.";
+      rack.appendChild(h);
+    }
+    renderRack();
+
+    function loop() { drawOud(); requestAnimationFrame(loop); }
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>

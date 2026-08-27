@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Harmonograph · منسج</title>
+  <meta name="description" content="Two pendulums, one ink rose. A drawing machine." />
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root { --paper:#f6f1e8; --ink:#2a1810; --wood:#5a3020; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--paper); color: var(--ink); font-family: "IBM Plex Sans", system-ui, sans-serif; }
+    a.back { position:fixed; top:14px; right:16px; color:var(--ink); text-decoration:none; opacity:.5; min-height:44px; display:grid; place-items:center; z-index:2; }
+    .layout { display:grid; grid-template-rows: auto 1fr auto; min-height: 100dvh; }
+    header { padding: 48px 24px 8px; max-width: 720px; }
+    h1 { font-family: "Libre Baskerville", serif; font-size: clamp(1.8rem, 5vw, 2.6rem); margin: 0; font-weight: 400; }
+    header p { opacity: .65; max-width: 46ch; line-height: 1.55; }
+    canvas { width: min(720px, calc(100% - 32px)); height: min(720px, 58dvh); margin: 0 auto; display:block; background: #fbf7f0; border: 1px solid #2a18101a; }
+    .panel { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px 18px; padding: 16px 24px 28px; max-width: 900px; margin: 0 auto; width: 100%; }
+    label { font-size: .78rem; display:flex; flex-direction:column; gap:4px; }
+    input[type=range] { accent-color: var(--wood); }
+    .actions { display:flex; gap:8px; align-items:end; }
+    button { min-height:44px; padding:0 16px; border:1px solid var(--ink); background: var(--ink); color: var(--paper); font: inherit; cursor: pointer; }
+    button.ghost { background: transparent; color: var(--ink); }
+    @media (prefers-reduced-motion: reduce) { canvas { /* still draws, no extra motion */ } }
+  </style>
+</head>
+<body>
+  <a class="back" href="../">الخزانة</a>
+  <div class="layout">
+    <header>
+      <h1>Harmonograph</h1>
+      <p>Two damped pendulums share a pen. Change the frequency ratio and a rose appears in iron-gall.</p>
+    </header>
+    <canvas id="c"></canvas>
+    <div class="panel">
+      <label>Freq X <input id="fx" type="range" min="1" max="8" step="0.01" value="3" /></label>
+      <label>Freq Y <input id="fy" type="range" min="1" max="8" step="0.01" value="2" /></label>
+      <label>Phase <input id="ph" type="range" min="0" max="6.28" step="0.01" value="1.57" /></label>
+      <label>Decay <input id="dec" type="range" min="0.04" max="0.4" step="0.01" value="0.12" /></label>
+      <div class="actions">
+        <button type="button" id="draw">Draw</button>
+        <button type="button" class="ghost" id="clear">Clear</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    let running = false;
+
+    function resize() {
+      const dpr = Math.min(2, devicePixelRatio || 1);
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = "#fbf7f0";
+      ctx.fillRect(0, 0, w, h);
+    }
+
+    function run() {
+      if (running) return;
+      running = true;
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      const fx = Number(document.getElementById("fx").value);
+      const fy = Number(document.getElementById("fy").value);
+      const ph = Number(document.getElementById("ph").value);
+      const dec = Number(document.getElementById("dec").value);
+      const A = Math.min(w, h) * 0.42;
+      let t = 0, px, py;
+      ctx.strokeStyle = "#2a1810";
+      ctx.lineWidth = 0.7;
+      ctx.globalAlpha = 0.85;
+      let last = performance.now();
+      function step(now) {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        const steps = 180;
+        ctx.beginPath();
+        for (let i = 0; i < steps; i++) {
+          t += 0.016;
+          const damp = Math.exp(-dec * t);
+          const x = w / 2 + Math.sin(fx * t) * A * damp;
+          const y = h / 2 + Math.sin(fy * t + ph) * A * damp;
+          if (px == null) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          px = x; py = y;
+        }
+        ctx.stroke();
+        if (t < 42 && running) requestAnimationFrame(step);
+        else running = false;
+      }
+      requestAnimationFrame(step);
+    }
+
+    document.getElementById("draw").onclick = () => { running = false; setTimeout(run, 20); };
+    document.getElementById("clear").onclick = () => { running = false; resize(); };
+    addEventListener("resize", () => { running = false; resize(); });
+    resize();
+    run();
+  </script>
+</body>
+</html>

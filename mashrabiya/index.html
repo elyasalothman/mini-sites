@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>المشربية · Mashrabiya</title>
+  <meta name="description" content="استوديو شبك هندسي — ولّد مشربية وصدّرها كـ SVG." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f4ecd8;
+      --ink: #3b2a1a;
+      --brass: #8a5a2b;
+      --line: #5a3a1c;
+      --panel: #efe4cc;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+    }
+    a.back {
+      position: fixed; top: 16px; left: 16px; z-index: 4;
+      color: var(--ink); text-decoration: none; font-size: 0.8rem;
+      opacity: 0.55; min-height: 44px; display: grid; place-items: center;
+    }
+    a.back:hover { opacity: 1; }
+    .wrap {
+      display: grid;
+      grid-template-columns: minmax(240px, 300px) 1fr;
+      min-height: 100dvh;
+    }
+    aside {
+      padding: 72px 28px 32px;
+      border-left: 1px solid color-mix(in oklab, var(--ink) 16%, transparent);
+      background: var(--panel);
+    }
+    h1 { font-family: Amiri, serif; font-size: 2.4rem; margin: 0; line-height: 1; }
+    .en { letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.72rem; opacity: 0.55; margin-top: 8px; }
+    p.lead { font-size: 0.92rem; line-height: 1.65; opacity: 0.78; }
+    label { display: block; font-size: 0.78rem; margin: 18px 0 6px; }
+    input[type="range"] { width: 100%; accent-color: var(--brass); }
+    .val { float: left; font-variant-numeric: tabular-nums; opacity: 0.6; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
+    button {
+      min-height: 44px; padding: 0 16px; border: 1px solid var(--line);
+      background: var(--ink); color: var(--paper); font: inherit; cursor: pointer;
+    }
+    button.ghost { background: transparent; color: var(--ink); }
+    main { position: relative; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100dvh; }
+    @media (max-width: 800px) {
+      .wrap { grid-template-columns: 1fr; }
+      aside { border: 0; border-bottom: 1px solid color-mix(in oklab, var(--ink) 16%, transparent); padding-top: 64px; }
+      canvas { height: 70dvh; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <a class="back" href="../">الخزانة</a>
+  <div class="wrap">
+    <aside>
+      <h1>المشربية</h1>
+      <div class="en">Lattice studio</div>
+      <p class="lead">شبك خشبي يُولَّد من نجمة وطيّة. حرّك الكثافة والسُمك، ثم صدّر SVG.</p>
+      <label>الطيّ <span class="val" id="v-fold">8</span></label>
+      <input id="fold" type="range" min="6" max="12" step="2" value="8" />
+      <label>الكثافة <span class="val" id="v-dens">5</span></label>
+      <input id="dens" type="range" min="3" max="9" step="1" value="5" />
+      <label>النجمة <span class="val" id="v-star">0.42</span></label>
+      <input id="star" type="range" min="0.22" max="0.62" step="0.01" value="0.42" />
+      <label>سُمك العود <span class="val" id="v-w">1.6</span></label>
+      <input id="w" type="range" min="0.6" max="3.2" step="0.1" value="1.6" />
+      <div class="row">
+        <button type="button" id="export">تصدير SVG</button>
+        <button type="button" class="ghost" id="shuffle">بعثرة</button>
+      </div>
+    </aside>
+    <main><canvas id="c"></canvas></main>
+  </div>
+  <script>
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    const foldEl = document.getElementById("fold");
+    const densEl = document.getElementById("dens");
+    const starEl = document.getElementById("star");
+    const wEl = document.getElementById("w");
+    const state = { rot: 0 };
+
+    function syncLabels() {
+      document.getElementById("v-fold").textContent = foldEl.value;
+      document.getElementById("v-dens").textContent = densEl.value;
+      document.getElementById("v-star").textContent = Number(starEl.value).toFixed(2);
+      document.getElementById("v-w").textContent = Number(wEl.value).toFixed(1);
+    }
+
+    function star(cx, cy, outer, inner, n, rot) {
+      const pts = [];
+      const steps = n * 2;
+      for (let i = 0; i < steps; i++) {
+        const r = i % 2 === 0 ? outer : inner;
+        const a = rot + (i * Math.PI) / n - Math.PI / 2;
+        pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
+      }
+      return pts;
+    }
+
+    function drawTile(g, cx, cy, size, n, innerRatio, stroke) {
+      const outer = size * 0.46;
+      const inner = outer * innerRatio;
+      const s = star(cx, cy, outer, inner, n, state.rot);
+      g.beginPath();
+      s.forEach((p, i) => (i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])));
+      g.closePath();
+      g.stroke();
+      g.beginPath();
+      g.arc(cx, cy, outer * 0.18, 0, Math.PI * 2);
+      g.stroke();
+      const bar = size * 0.5;
+      for (let i = 0; i < n; i++) {
+        const a = state.rot + (i * Math.PI * 2) / n;
+        g.beginPath();
+        g.moveTo(cx + Math.cos(a) * outer * 0.2, cy + Math.sin(a) * outer * 0.2);
+        g.lineTo(cx + Math.cos(a) * bar, cy + Math.sin(a) * bar);
+        g.stroke();
+      }
+      g.strokeRect(cx - size / 2, cy - size / 2, size, size);
+    }
+
+    function geometry() {
+      const n = Number(foldEl.value);
+      const dens = Number(densEl.value);
+      const inner = Number(starEl.value);
+      const stroke = Number(wEl.value);
+      return { n, dens, inner, stroke };
+    }
+
+    function paint() {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+      const h = canvas.clientHeight || window.innerHeight;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = "#f4ecd8";
+      ctx.fillRect(0, 0, w, h);
+      const g = geometry();
+      const size = Math.min(w, h) / g.dens;
+      ctx.strokeStyle = "#5a3a1c";
+      ctx.lineWidth = g.stroke;
+      ctx.lineJoin = "miter";
+      const cols = Math.ceil(w / size) + 1;
+      const rows = Math.ceil(h / size) + 1;
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          drawTile(ctx, (x + 0.5) * size, (y + 0.5) * size, size, g.n, g.inner, g.stroke);
+        }
+      }
+    }
+
+    function exportSvg() {
+      const g = geometry();
+      const w = 800, h = 800;
+      const size = w / g.dens;
+      let d = "";
+      const fake = {
+        beginPath() { this._p = ""; },
+        moveTo(x, y) { this._p += `M${x.toFixed(2)} ${y.toFixed(2)}`; },
+        lineTo(x, y) { this._p += `L${x.toFixed(2)} ${y.toFixed(2)}`; },
+        arc(cx, cy, r) {
+          d += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="none"/>`;
+        },
+        closePath() { this._p += "Z"; },
+        stroke() { if (this._p) d += `<path d="${this._p}"/>`; },
+        strokeRect(x, y, rw, rh) {
+          d += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${rw.toFixed(1)}" height="${rh.toFixed(1)}" fill="none"/>`;
+        },
+      };
+      const cols = g.dens, rows = g.dens;
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          drawTile(fake, (x + 0.5) * size, (y + 0.5) * size, size, g.n, g.inner, g.stroke);
+        }
+      }
+      const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" stroke="#5a3a1c" stroke-width="${g.stroke}" fill="none">${d}</svg>`;
+      const blob = new Blob([svg], { type: "image/svg+xml" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "mashrabiya.svg";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    ["input", "change"].forEach((ev) => {
+      [foldEl, densEl, starEl, wEl].forEach((el) => el.addEventListener(ev, () => { syncLabels(); paint(); }));
+    });
+    document.getElementById("export").onclick = exportSvg;
+    document.getElementById("shuffle").onclick = () => {
+      state.rot = Math.random() * Math.PI;
+      paint();
+    };
+    addEventListener("resize", paint);
+    syncLabels();
+    paint();
+  </script>
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>كرك — منقع الشاي</title>
+  <meta name="description" content="راقب الكأس وهو يغمق: كرك كلاسيك، عدني، حليب زايد، أو زنجبيل. انقع، صبّ، واحكم على الثقل.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --saffron: #c47a2c;
+      --cardamom: #3d5c3a;
+      --milk: #f6e6c8;
+      --tea: #4a2a12;
+      --wood: #6b3e1f;
+      --brass: #b8893a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; }
+    body {
+      font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
+      background: var(--milk);
+      color: var(--tea);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .wall {
+      min-height: 100dvh;
+      background:
+        radial-gradient(ellipse 80% 40% at 50% 0%, #e8c98a 0%, transparent 55%),
+        repeating-linear-gradient(90deg, #e9d4a8 0 28px, #e4cd9c 28px 56px);
+      padding: 20px 16px 72px;
+    }
+    .shop-sign {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .shop-sign h1 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: clamp(2.6rem, 12vw, 4.8rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 0.9;
+      color: var(--tea);
+      text-wrap: balance;
+    }
+    .shop-sign p {
+      margin-top: 8px;
+      font-size: 0.92rem;
+      color: #6a4020;
+      opacity: 0.85;
+    }
+    .stall {
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+    @media (min-width: 820px) {
+      .stall { grid-template-columns: 280px 1fr 220px; align-items: start; }
+    }
+    .tins {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (min-width: 820px) {
+      .tins { grid-template-columns: 1fr; }
+    }
+    .tin {
+      min-height: 64px;
+      border: 2px solid var(--tea);
+      background: #efe0b8;
+      padding: 10px 12px;
+      text-align: right;
+      cursor: pointer;
+      font-family: inherit;
+      color: inherit;
+      border-radius: 2px 2px 10px 10px;
+      box-shadow: inset 0 8px 0 #d4b878, 0 4px 0 #4a2a12;
+      position: relative;
+    }
+    .tin::before {
+      content: "";
+      position: absolute;
+      top: -6px; right: 18%; left: 18%;
+      height: 8px;
+      background: var(--brass);
+      border: 1px solid var(--tea);
+      border-radius: 2px;
+    }
+    .tin[aria-pressed="true"] {
+      background: #3d5c3a;
+      color: var(--milk);
+      border-color: #2a3e28;
+    }
+    .tin strong { display: block; font-size: 0.98rem; }
+    .tin span { font-size: 0.75rem; opacity: 0.8; }
+    .stage {
+      background: linear-gradient(#8a5428, #5c3418 40%, #4a2a12);
+      border-radius: 4px 4px 0 0;
+      padding: 18px 12px 0;
+      box-shadow: 0 18px 0 #3a1e0c;
+      position: relative;
+    }
+    .tray {
+      background: radial-gradient(ellipse at 50% 40%, #d4a04a, #8a6020);
+      border-radius: 50% 50% 4px 4px;
+      padding: 16px 8px 28px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      min-height: 340px;
+    }
+    canvas#cup {
+      width: min(260px, 78vw);
+      height: 320px;
+      display: block;
+      touch-action: none;
+    }
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .timer {
+      background: #2a1a10;
+      color: #f0d8a0;
+      border-radius: 50%;
+      width: 140px;
+      height: 140px;
+      margin-inline: auto;
+      display: grid;
+      place-items: center;
+      border: 8px solid var(--brass);
+      box-shadow: inset 0 0 0 3px #4a2a12, 0 6px 0 #3a1e0c;
+      font-family: Fraunces, Georgia, serif;
+      font-variant-numeric: tabular-nums;
+    }
+    .timer b { font-size: 1.8rem; display: block; text-align: center; }
+    .timer small { display: block; font-size: 0.7rem; letter-spacing: 0.12em; opacity: 0.7; font-family: inherit; }
+    .controls { display: flex; flex-direction: column; gap: 8px; }
+    .btn {
+      min-height: 48px;
+      border: 0;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0 16px;
+      border-radius: 4px;
+    }
+    .btn-start { background: var(--cardamom); color: var(--milk); }
+    .btn-start:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-pour { background: var(--saffron); color: var(--tea); }
+    .btn-pour:disabled { opacity: 0.4; cursor: not-allowed; }
+    .milk-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 0 4px;
+    }
+    .milk-row input { width: 22px; height: 22px; accent-color: var(--saffron); }
+    .note {
+      background: #f3e4bc;
+      border: 1px dashed #8a6020;
+      padding: 12px 14px;
+      min-height: 88px;
+      font-size: 0.92rem;
+      line-height: 1.55;
+      transform: rotate(-1.2deg);
+    }
+    .note em { font-style: normal; font-family: Fraunces, serif; font-size: 1.15rem; color: var(--cardamom); }
+    .note.heavy em { color: #8a2010; }
+    .note.weak em { color: #8a6a28; }
+    a.vault {
+      position: fixed; bottom: 12px; inset-inline-start: 12px; z-index: 50;
+      font-size: 11px; letter-spacing: 0.12em; opacity: 0.42; color: var(--tea);
+      text-decoration: none; font-family: inherit;
+    }
+    a.vault:hover { opacity: 0.8; }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wall">
+    <header class="shop-sign">
+      <h1>كرك</h1>
+      <p>منقع زمني — ثانية واحدة = خمس عشرة ثانية نقع</p>
+    </header>
+    <div class="stall">
+      <div class="tins" id="tins" role="group" aria-label="خلطة الشاي"></div>
+      <div class="stage">
+        <div class="tray">
+          <canvas id="cup" width="260" height="320" aria-label="كأس الشاي"></canvas>
+        </div>
+      </div>
+      <aside class="side">
+        <div class="timer" aria-live="polite">
+          <div>
+            <b id="clock">0:00</b>
+            <small>دقائق النقع</small>
+          </div>
+        </div>
+        <div class="controls">
+          <button class="btn btn-start" id="start" type="button">ابدأ النقع</button>
+          <button class="btn btn-pour" id="pour" type="button" disabled>صبّه</button>
+          <label class="milk-row">
+            <input type="checkbox" id="milk">
+            <span>دوّامة حليب</span>
+          </label>
+        </div>
+        <div class="note" id="note">
+          اختر خلطة، ثم انقع. اللون في الكأس هو الحكم، لا الشريط.
+        </div>
+      </aside>
+    </div>
+  </div>
+  <a class="vault" href="../" style="position:fixed;bottom:12px;inset-inline-start:12px;z-index:50;font-size:11px;letter-spacing:.12em;opacity:.42;color:#4a2a12;text-decoration:none">الخزانة</a>
+
+  <script>
+  (function () {
+    const MIXES = [
+      { id: "classic", ar: "كرك كلاسيك", sub: "شاي أسود · هيل · حليب", from: [246, 214, 168], to: [92, 48, 18], milk: 0.32, lo: 3.2, hi: 5.6 },
+      { id: "adeni", ar: "عدني", sub: "ثقيل · هيل · قرنفل", from: [236, 196, 140], to: [58, 28, 12], milk: 0.18, lo: 4.0, hi: 6.2 },
+      { id: "extra", ar: "حليب زايد", sub: "كريمي وخفيف اللون", from: [250, 232, 200], to: [164, 112, 64], milk: 0.55, lo: 3.0, hi: 5.0 },
+      { id: "ginger", ar: "زنجبيل", sub: "ذهبي حار", from: [244, 210, 140], to: [140, 72, 22], milk: 0.28, lo: 3.5, hi: 5.8 }
+    ];
+    const SCALE = 15;
+    const MAX_STEEP = 8 * 60;
+    let mix = MIXES[0];
+    let running = false;
+    let poured = false;
+    let steepSec = 0;
+    let lastTs = 0;
+    let swirl = 0;
+    let steam = [];
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const tins = document.getElementById("tins");
+    MIXES.forEach((m, i) => {
+      const b = document.createElement("button");
+      b.className = "tin";
+      b.type = "button";
+      b.setAttribute("aria-pressed", i === 0 ? "true" : "false");
+      b.innerHTML = "<strong>" + m.ar + "</strong><span>" + m.sub + "</span>";
+      b.addEventListener("click", () => {
+        if (running) return;
+        mix = m;
+        poured = false;
+        steepSec = 0;
+        document.querySelectorAll(".tin").forEach(el => el.setAttribute("aria-pressed", "false"));
+        b.setAttribute("aria-pressed", "true");
+        document.getElementById("pour").disabled = true;
+        document.getElementById("start").disabled = false;
+        document.getElementById("note").className = "note";
+        document.getElementById("note").innerHTML = "الخلطة جاهزة. ابدأ النقع وراقب السائل وهو يغمق.";
+        draw();
+      });
+      tins.appendChild(b);
+    });
+
+    const canvas = document.getElementById("cup");
+    const ctx = canvas.getContext("2d");
+    function sizeCanvas() {
+      const cssW = canvas.getBoundingClientRect().width;
+      const cssH = canvas.getBoundingClientRect().height;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      canvas._w = cssW;
+      canvas._h = cssH;
+    }
+    sizeCanvas();
+    addEventListener("resize", () => { sizeCanvas(); draw(); });
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function mixRgb(a, b, t) {
+      return [Math.round(lerp(a[0], b[0], t)), Math.round(lerp(a[1], b[1], t)), Math.round(lerp(a[2], b[2], t))];
+    }
+    function rgb(c, a) { return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + (a == null ? 1 : a) + ")"; }
+
+    function steepT() {
+      const t = Math.min(1, steepSec / MAX_STEEP);
+      return 1 - Math.pow(1 - t, 1.35);
+    }
+
+    function verdict() {
+      const min = steepSec / 60;
+      if (min < mix.lo - 0.6) return { k: "weak", t: "خفيف", d: "النقع قصير. اللون باهت — يحتاج دقائق أخرى." };
+      if (min > mix.hi + 0.4) return { k: "heavy", t: "ثقيل", d: "تركته طويلاً. مرّ وغامق كالشاي المطبوخ." };
+      return { k: "ok", t: "مثالي", d: "ثقل متوازن، هيل واضح، يصلح للصبّ الآن." };
+    }
+
+    function draw() {
+      const w = canvas._w || 260, h = canvas._h || 320;
+      ctx.clearRect(0, 0, w, h);
+      const cx = w / 2;
+      const top = 48, bot = h - 28, rimW = 78, baseW = 52;
+      const glass = (yy) => {
+        const u = (yy - top) / (bot - top);
+        return rimW + (baseW - rimW) * u;
+      };
+
+      const t = poured ? 0 : steepT();
+      const col = mixRgb(mix.from, mix.to, t);
+      const fillTop = poured ? bot : lerp(bot - 8, top + 38, 0.86);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cx - glass(fillTop), fillTop);
+      ctx.lineTo(cx + glass(fillTop), fillTop);
+      ctx.lineTo(cx + glass(bot), bot);
+      ctx.lineTo(cx - glass(bot), bot);
+      ctx.closePath();
+      ctx.clip();
+      const g = ctx.createLinearGradient(cx, fillTop, cx, bot);
+      g.addColorStop(0, rgb(col, 0.92));
+      const shadow = mixRgb(col, [40, 18, 8], 0.35);
+      g.addColorStop(1, rgb(shadow, 1));
+      ctx.fillStyle = g;
+      ctx.fillRect(cx - rimW - 10, fillTop, rimW * 2 + 20, bot - fillTop + 4);
+
+      if (document.getElementById("milk").checked && !poured && t > 0.02) {
+        ctx.save();
+        ctx.globalAlpha = 0.28 + mix.milk * 0.25;
+        ctx.translate(cx, (fillTop + bot) / 2);
+        ctx.rotate(swirl);
+        for (let i = 0; i < 5; i++) {
+          ctx.beginPath();
+          ctx.strokeStyle = "rgba(255,244,220,0.55)";
+          ctx.lineWidth = 6 - i;
+          ctx.ellipse(0, 0, 28 + i * 7, 10 + i * 3, i * 0.5, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      ctx.fillStyle = rgb(mixRgb(col, [255, 250, 230], 0.35), 0.35);
+      ctx.beginPath();
+      ctx.ellipse(cx, fillTop, glass(fillTop) - 2, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.moveTo(cx - rimW, top);
+      ctx.lineTo(cx - baseW, bot);
+      ctx.quadraticCurveTo(cx, bot + 10, cx + baseW, bot);
+      ctx.lineTo(cx + rimW, top);
+      ctx.strokeStyle = "rgba(90,50,20,0.55)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(cx, top, rimW, 11, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(90,50,20,0.7)";
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.12)";
+      ctx.beginPath();
+      ctx.ellipse(cx, top, rimW - 2, 9, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.28)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(cx - rimW + 18, top + 28);
+      ctx.quadraticCurveTo(cx - rimW + 8, (top + bot) / 2, cx - baseW + 14, bot - 20);
+      ctx.stroke();
+
+      ctx.fillStyle = "#c47a2c";
+      ctx.fillRect(cx + rimW - 8, top + 20, 6, 70);
+      ctx.fillStyle = "#3d5c3a";
+      ctx.fillRect(cx + rimW - 18, top + 16, 26, 10);
+
+      if (running && !reduce) {
+        steam.forEach(p => {
+          ctx.fillStyle = "rgba(255,255,255," + p.a + ")";
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, p.r, p.r * 1.4, 0, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+    }
+
+    function tick(ts) {
+      if (!lastTs) lastTs = ts;
+      const dt = Math.min(0.05, (ts - lastTs) / 1000);
+      lastTs = ts;
+      if (running && !poured) {
+        steepSec = Math.min(MAX_STEEP, steepSec + dt * SCALE);
+        const m = Math.floor(steepSec / 60);
+        const s = Math.floor(steepSec % 60);
+        document.getElementById("clock").textContent = m + ":" + String(s).padStart(2, "0");
+        if (!reduce) {
+          swirl += dt * 1.2;
+          if (Math.random() < 0.35) steam.push({ x: (canvas._w || 260) / 2 + (Math.random() - 0.5) * 40, y: 40, r: 4 + Math.random() * 6, a: 0.25, v: 12 + Math.random() * 18 });
+          steam.forEach(p => { p.y -= p.v * dt; p.a -= dt * 0.18; p.x += Math.sin(p.y * 0.08) * 8 * dt; });
+          steam = steam.filter(p => p.a > 0);
+        }
+        if (steepSec >= MAX_STEEP) {
+          running = false;
+          document.getElementById("start").disabled = true;
+          document.getElementById("pour").disabled = false;
+          const v = verdict();
+          document.getElementById("note").className = "note " + v.k;
+          document.getElementById("note").innerHTML = "<em>" + v.t + "</em><br>" + v.d;
+        }
+      }
+      draw();
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    document.getElementById("start").addEventListener("click", () => {
+      if (poured) {
+        poured = false;
+        steepSec = 0;
+        document.getElementById("clock").textContent = "0:00";
+      }
+      running = true;
+      document.getElementById("start").disabled = true;
+      document.getElementById("pour").disabled = false;
+      document.getElementById("note").className = "note";
+      document.getElementById("note").textContent = "ينقع الآن. اللون يتغيّر في السائل نفسه.";
+    });
+    document.getElementById("pour").addEventListener("click", () => {
+      running = false;
+      poured = true;
+      document.getElementById("pour").disabled = true;
+      document.getElementById("start").disabled = false;
+      document.getElementById("start").textContent = "نقع جديد";
+      const v = verdict();
+      document.getElementById("note").className = "note " + v.k;
+      document.getElementById("note").innerHTML = "<em>" + v.t + "</em><br>" + v.d + " صُبّ في الفنجان.";
+    });
+    document.getElementById("milk").addEventListener("change", draw);
+  })();
+  </script>
+</body>
+</html>

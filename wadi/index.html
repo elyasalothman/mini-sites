@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wadi — وادي</title>
+  <meta name="description" content="Rain on a heightmap and watch water carve a satellite wadi. Click and drag to storm; reset the hills." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --earth: #6a5a44;
+      --stone: #d8d0c4;
+      --flood: #4a6a7a;
+      --ink: #2a241c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      background: #1c1814;
+      color: var(--stone);
+      min-height: 100dvh;
+      overflow: hidden;
+    }
+    .home {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 20;
+      font-size: 0.75rem;
+      color: var(--stone);
+      text-decoration: none;
+      opacity: 0.4;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 10px;
+    }
+    .home:hover, .home:focus-visible { opacity: 1; }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .hud {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      left: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .title {
+      pointer-events: none;
+      padding-top: 28px;
+    }
+    h1 {
+      font-family: "Newsreader", Georgia, serif;
+      font-size: clamp(1.8rem, 6vw, 2.8rem);
+      font-weight: 600;
+      color: #f0e8dc;
+      line-height: 1;
+    }
+    .title p {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 6px;
+      max-width: 16rem;
+    }
+    .ar {
+      font-size: 0.85rem;
+      opacity: 0.5;
+      margin-top: 2px;
+    }
+    .panel {
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    button {
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1px solid rgba(216, 208, 196, 0.35);
+      background: rgba(42, 36, 28, 0.72);
+      color: var(--stone);
+      font: inherit;
+      font-size: 0.82rem;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+    }
+    button:hover { background: rgba(74, 106, 122, 0.55); }
+    .stat {
+      font-size: 0.72rem;
+      opacity: 0.65;
+      letter-spacing: 0.04em;
+    }
+    @media (max-width: 520px) {
+      .hud { flex-direction: column; }
+      .panel { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <a class="home" href="../">الخزانة</a>
+  <canvas id="c" aria-label="Satellite heightmap. Click and drag to rain."></canvas>
+  <div class="hud">
+    <div class="title">
+      <h1>Wadi</h1>
+      <p class="ar">وادي</p>
+      <p>Press and drag to rain. Water finds the steepest descent, eats the bank, and lays silt in the flats.</p>
+    </div>
+    <div class="panel">
+      <button type="button" id="reset">Reset terrain</button>
+      <span class="stat" id="stat">0 channels</span>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const canvas = document.getElementById("c");
+      const statEl = document.getElementById("stat");
+      const COLS = 80;
+      const ROWS = 50;
+      const height = new Float32Array(COLS * ROWS);
+      const wet = new Float32Array(COLS * ROWS);
+      const particles = [];
+      const MAX_P = 2200;
+      let raining = false;
+      let mx = 0.5, my = 0.5;
+      let dpr = 1;
+      let img = null;
+      let px, py;
+      const off = document.createElement("canvas");
+      off.width = COLS;
+      off.height = ROWS;
+      const offCtx = off.getContext("2d");
+
+      function idx(x, y) { return y * COLS + x; }
+      function hash(ix, iy) {
+        let n = (ix * 374761393 + iy * 668265263) | 0;
+        n = (n ^ (n >> 13)) * 1274126177;
+        return ((n ^ (n >> 16)) >>> 0) / 4294967295;
+      }
+      function noise(x, y) {
+        const x0 = Math.floor(x), y0 = Math.floor(y);
+        const fx = x - x0, fy = y - y0;
+        const u = fx * fx * (3 - 2 * fx);
+        const v = fy * fy * (3 - 2 * fy);
+        const a = hash(x0, y0);
+        const b = hash(x0 + 1, y0);
+        const c = hash(x0, y0 + 1);
+        const d = hash(x0 + 1, y0 + 1);
+        return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+      }
+      function fbm(x, y) {
+        let s = 0, a = 1, f = 1, t = 0;
+        for (let i = 0; i < 5; i++) {
+          s += noise(x * f, y * f) * a;
+          t += a;
+          a *= 0.5;
+          f *= 2.05;
+        }
+        return s / t;
+      }
+
+      function resetTerrain() {
+        const seed = Math.floor(Math.random() * 10000);
+        for (let y = 0; y < ROWS; y++) {
+          for (let x = 0; x < COLS; x++) {
+            const n = fbm(x * 0.07 + seed, y * 0.07);
+            const ridge = Math.abs(fbm(x * 0.03 + 20, y * 0.05) - 0.5) * 2;
+            let h = n * 0.72 + (1 - ridge) * 0.28;
+            const dx = x / COLS - 0.5;
+            const dy = y / ROWS - 0.5;
+            h += 0.12 * Math.exp(-(dx * dx + dy * dy) * 3.5);
+            h -= 0.08 * Math.exp(-((dx * 0.3 + dy) * (dx * 0.3 + dy)) * 8);
+            height[idx(x, y)] = h;
+            wet[idx(x, y)] = 0;
+          }
+        }
+        particles.length = 0;
+      }
+      resetTerrain();
+
+      function sampleH(x, y) {
+        const xx = Math.max(0, Math.min(COLS - 1.001, x));
+        const yy = Math.max(0, Math.min(ROWS - 1.001, y));
+        const x0 = Math.floor(xx), y0 = Math.floor(yy);
+        const x1 = Math.min(COLS - 1, x0 + 1);
+        const y1 = Math.min(ROWS - 1, y0 + 1);
+        const fx = xx - x0, fy = yy - y0;
+        const h00 = height[idx(x0, y0)];
+        const h10 = height[idx(x1, y0)];
+        const h01 = height[idx(x0, y1)];
+        const h11 = height[idx(x1, y1)];
+        return h00 * (1 - fx) * (1 - fy) + h10 * fx * (1 - fy) + h01 * (1 - fx) * fy + h11 * fx * fy;
+      }
+      function addH(x, y, amt) {
+        const x0 = Math.floor(x), y0 = Math.floor(y);
+        if (x0 < 1 || y0 < 1 || x0 >= COLS - 1 || y0 >= ROWS - 1) return;
+        const fx = x - x0, fy = y - y0;
+        height[idx(x0, y0)] += amt * (1 - fx) * (1 - fy);
+        height[idx(x0 + 1, y0)] += amt * fx * (1 - fy);
+        height[idx(x0, y0 + 1)] += amt * (1 - fx) * fy;
+        height[idx(x0 + 1, y0 + 1)] += amt * fx * fy;
+      }
+      function addWet(x, y, amt) {
+        const ix = Math.floor(x), iy = Math.floor(y);
+        if (ix < 0 || iy < 0 || ix >= COLS || iy >= ROWS) return;
+        wet[idx(ix, iy)] = Math.min(1, wet[idx(ix, iy)] + amt);
+      }
+
+      function spawn(n, x, y) {
+        for (let i = 0; i < n; i++) {
+          if (particles.length >= MAX_P) particles.shift();
+          particles.push({
+            x: x + (Math.random() - 0.5) * 1.6,
+            y: y + (Math.random() - 0.5) * 1.6,
+            vx: 0,
+            vy: 0,
+            sed: 0,
+            vol: 1,
+            life: 1
+          });
+        }
+      }
+
+      function stepParticle(p, dt) {
+        const x = p.x, y = p.y;
+        if (x < 1 || y < 1 || x >= COLS - 1 || y >= ROWS - 1 || p.vol < 0.05) {
+          p.life = 0;
+          return;
+        }
+        const hL = sampleH(x - 1, y);
+        const hR = sampleH(x + 1, y);
+        const hU = sampleH(x, y - 1);
+        const hD = sampleH(x, y + 1);
+        const gx = (hR - hL) * 0.5;
+        const gy = (hD - hU) * 0.5;
+        const inertia = 0.28;
+        p.vx = p.vx * inertia - gx * (1 - inertia) * 18;
+        p.vy = p.vy * inertia - gy * (1 - inertia) * 18;
+        const spd = Math.hypot(p.vx, p.vy) || 0.0001;
+        const maxS = 4.5;
+        if (spd > maxS) {
+          p.vx = (p.vx / spd) * maxS;
+          p.vy = (p.vy / spd) * maxS;
+        }
+        const oldH = sampleH(p.x, p.y);
+        p.x += p.vx * dt * 14;
+        p.y += p.vy * dt * 14;
+        const newH = sampleH(p.x, p.y);
+        const slope = Math.max(0.004, oldH - newH);
+        const speed = Math.hypot(p.vx, p.vy);
+        const cap = slope * speed * p.vol * 8.5;
+        if (p.sed > cap) {
+          const dep = (p.sed - cap) * 0.35;
+          p.sed -= dep;
+          addH(p.x, p.y, dep * 0.08);
+        } else {
+          const ero = Math.min((cap - p.sed) * 0.22, 0.045) * p.vol;
+          p.sed += ero;
+          addH(p.x, p.y, -ero * 0.12);
+        }
+        addWet(p.x, p.y, 0.35 * p.vol);
+        p.vol *= 1 - 0.18 * dt;
+        p.life -= dt * 0.12;
+      }
+
+      function fit() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        canvas.width = Math.max(1, Math.floor(w * dpr));
+        canvas.height = Math.max(1, Math.floor(h * dpr));
+        px = canvas.getContext("2d", { alpha: false });
+        px.setTransform(dpr, 0, 0, dpr, 0, 0);
+        img = px.createImageData(COLS, ROWS);
+      }
+      fit();
+      window.addEventListener("resize", fit);
+
+      function lerpC(a, b, t) {
+        return [
+          a[0] + (b[0] - a[0]) * t,
+          a[1] + (b[1] - a[1]) * t,
+          a[2] + (b[2] - a[2]) * t
+        ];
+      }
+
+      function render() {
+        const d = img.data;
+        for (let y = 0; y < ROWS; y++) {
+          for (let x = 0; x < COLS; x++) {
+            const i = idx(x, y);
+            const h = height[i];
+            const nL = x > 0 ? height[i - 1] : h;
+            const nU = y > 0 ? height[i - COLS] : h;
+            const shade = 1 + (nL - h) * 1.8 + (nU - h) * 1.2;
+            let c;
+            if (h > 0.72) c = lerpC([216, 208, 196], [236, 228, 214], (h - 0.72) / 0.3);
+            else if (h > 0.45) c = lerpC([160, 132, 96], [216, 208, 196], (h - 0.45) / 0.27);
+            else c = lerpC([74, 90, 72], [106, 90, 68], h / 0.45);
+            const wgt = wet[i];
+            if (wgt > 0.02) {
+              c = lerpC(c, [58, 90, 104], Math.min(1, wgt * 1.1));
+              if (h < 0.42) c = lerpC(c, [42, 78, 92], Math.min(0.7, wgt));
+            }
+            c[0] = Math.max(0, Math.min(255, c[0] * shade));
+            c[1] = Math.max(0, Math.min(255, c[1] * shade));
+            c[2] = Math.max(0, Math.min(255, c[2] * shade));
+            const o = (y * COLS + x) * 4;
+            d[o] = c[0];
+            d[o + 1] = c[1];
+            d[o + 2] = c[2];
+            d[o + 3] = 255;
+            wet[i] *= 0.965;
+          }
+        }
+        offCtx.putImageData(img, 0, 0);
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        px.imageSmoothingEnabled = true;
+        px.drawImage(off, 0, 0, w, h);
+
+        const cellW = w / COLS;
+        const cellH = h / ROWS;
+        px.fillStyle = "rgba(160, 210, 220, 0.55)";
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          px.fillRect(p.x * cellW, p.y * cellH, Math.max(1.5, cellW * 0.35), Math.max(1.5, cellH * 0.35));
+        }
+
+        let carved = 0;
+        for (let i = 0; i < height.length; i++) if (height[i] < 0.38) carved++;
+        statEl.textContent = carved + " low cells · " + particles.length + " drops";
+      }
+
+      function pointerToGrid(e) {
+        const r = canvas.getBoundingClientRect();
+        mx = ((e.clientX - r.left) / r.width) * COLS;
+        my = ((e.clientY - r.top) / r.height) * ROWS;
+      }
+      canvas.addEventListener("pointerdown", function (e) {
+        raining = true;
+        canvas.setPointerCapture(e.pointerId);
+        pointerToGrid(e);
+      });
+      canvas.addEventListener("pointermove", function (e) {
+        pointerToGrid(e);
+      });
+      canvas.addEventListener("pointerup", function () { raining = false; });
+      canvas.addEventListener("pointercancel", function () { raining = false; });
+      document.getElementById("reset").addEventListener("click", resetTerrain);
+
+      let last = performance.now();
+      function loop(now) {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        if (raining) spawn(18, mx, my);
+        for (let i = particles.length - 1; i >= 0; i--) {
+          stepParticle(particles[i], dt);
+          if (particles[i].life <= 0) particles.splice(i, 1);
+        }
+        render();
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>

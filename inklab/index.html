@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ink Lab — Fountain Mix</title>
+  <meta name="description" content="Mix fountain-pen inks on a lab bench: ratios, sheen, water-resistance bleed, English and Arabic sample lines.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root { --gall: #1a2030; --paper: #f3f0ea; --sheen: #c45a7a; --glass: #8aa0b0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; }
+    body {
+      font-family: "IBM Plex Sans Arabic", "IBM Plex Sans", system-ui, sans-serif;
+      background: #d8d2c8;
+      color: var(--gall);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .bench {
+      min-height: 100dvh;
+      background:
+        linear-gradient(#c8c0b4, #c8c0b4 46px, #9a8e80 47px, #b0a698 48px, #c4b8aa);
+      padding: 20px 14px 80px;
+    }
+    .labhead {
+      max-width: 1080px; margin: 0 auto 16px;
+      display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    }
+    .labhead h1 {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-weight: 600;
+      font-size: clamp(1.6rem, 5vw, 2.2rem);
+      letter-spacing: -0.02em;
+    }
+    .labhead span { font-size: 0.78rem; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.55; }
+    .grid {
+      max-width: 1080px; margin: 0 auto;
+      display: grid; grid-template-columns: 1fr; gap: 16px;
+    }
+    @media (min-width: 880px) {
+      .grid { grid-template-columns: 340px 1fr; }
+    }
+    .bottles { display: flex; flex-direction: column; gap: 12px; }
+    .bottle {
+      background: #ece6dc;
+      border: 1px solid #8a8074;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+    .flask {
+      width: 48px; height: 72px; border-radius: 6px 6px 18px 18px;
+      border: 2px solid #6a7884;
+      position: relative;
+      overflow: hidden;
+    }
+    .flask::before {
+      content: ""; position: absolute; top: 0; left: 14px; right: 14px; height: 10px;
+      background: #c8d0d6; border: 2px solid #6a7884; border-bottom: 0;
+    }
+    .flask i { position: absolute; inset: 18px 4px 4px; display: block; }
+    select, input[type="range"] { width: 100%; min-height: 44px; font-family: inherit; }
+    select { background: #f7f4ee; border: 1px solid #8a8074; color: var(--gall); padding: 0 8px; }
+    .meta { font-size: 0.75rem; opacity: 0.7; margin-top: 2px; }
+    .sheet {
+      background: var(--paper);
+      min-height: 420px;
+      padding: 22px 18px 18px;
+      box-shadow: 0 10px 0 #8a8074;
+      position: relative;
+    }
+    .sheet::before {
+      content: ""; pointer-events: none; position: absolute; inset: 0; opacity: 0.18;
+      background-image: radial-gradient(#c8c0b4 0.6px, transparent 0.7px);
+      background-size: 3px 3px;
+    }
+    .sample {
+      font-family: "IBM Plex Serif", Georgia, serif;
+      font-size: clamp(1.35rem, 4vw, 1.9rem);
+      line-height: 1.55;
+      position: relative;
+    }
+    .sample p { margin-bottom: 16px; }
+    .ar { direction: rtl; font-size: 1.15em; font-family: "IBM Plex Sans Arabic", sans-serif; }
+    canvas#bleed {
+      width: 100%; height: 140px; display: block; margin-top: 8px;
+      background: transparent;
+    }
+    .sliders { margin-top: 12px; display: grid; gap: 8px; }
+    .sliders label { font-size: 0.78rem; letter-spacing: 0.06em; }
+    .mixread { font-variant-numeric: tabular-nums; font-size: 0.8rem; opacity: 0.7; }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bench">
+    <div class="labhead">
+      <h1>Ink Lab</h1>
+      <span>مختبر الحبر · iron-gall bench</span>
+    </div>
+    <div class="grid">
+      <div class="bottles" id="bottles"></div>
+      <div class="sheet">
+        <div class="sample" id="sample">
+          <p class="en">The reed remembers the river; the nib only borrows it.</p>
+          <p class="ar">القصب يذكر النهر، والسنّ يستعيره فقط.</p>
+        </div>
+        <canvas id="bleed" width="640" height="140" aria-label="Paper bleed preview"></canvas>
+        <div class="sliders">
+          <label>Sheen <input id="sheen" type="range" min="0" max="100" value="35"></label>
+          <label>Water resistance (less bleed) <input id="resist" type="range" min="0" max="100" value="55"></label>
+          <p class="mixread" id="read"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <a href="../" style="position:fixed;bottom:12px;inset-inline-start:12px;z-index:50;font-size:11px;letter-spacing:.12em;opacity:.4;color:#1a2030;text-decoration:none">الخزانة</a>
+  <script>
+  (function () {
+    const PRESETS = {
+      gall: { n: "Iron Gall", rgb: [26, 32, 48] },
+      pruss: { n: "Prussian", rgb: [20, 48, 92] },
+      pers: { n: "Persimmon", rgb: [176, 64, 36] },
+      teal: { n: "Teal", rgb: [16, 92, 92] },
+      rose: { n: "Rose", rgb: [176, 64, 96] }
+    };
+    const bottles = [
+      { id: "a", key: "gall", ratio: 50 },
+      { id: "b", key: "pruss", ratio: 30 },
+      { id: "c", key: "rose", ratio: 20 }
+    ];
+
+    const root = document.getElementById("bottles");
+    bottles.forEach((b, idx) => {
+      const el = document.createElement("div");
+      el.className = "bottle";
+      el.innerHTML = '<div class="flask"><i id="fill-' + b.id + '"></i></div><div></div>';
+      const col = el.lastChild;
+      const sel = document.createElement("select");
+      sel.setAttribute("aria-label", "Bottle " + (idx + 1));
+      Object.keys(PRESETS).forEach(k => {
+        const o = document.createElement("option");
+        o.value = k; o.textContent = PRESETS[k].n;
+        if (k === b.key) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener("change", () => { b.key = sel.value; render(); });
+      const rng = document.createElement("input");
+      rng.type = "range"; rng.min = 0; rng.max = 100; rng.value = b.ratio;
+      rng.setAttribute("aria-label", "Ratio " + (idx + 1));
+      rng.addEventListener("input", () => { b.ratio = +rng.value; render(); });
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.id = "meta-" + b.id;
+      col.append(sel, rng, meta);
+      root.appendChild(el);
+    });
+
+    function mix() {
+      let r = 0, g = 0, b = 0, w = 0;
+      bottles.forEach(bt => {
+        const p = PRESETS[bt.key].rgb;
+        const a = bt.ratio;
+        r += p[0] * a; g += p[1] * a; b += p[2] * a; w += a;
+      });
+      if (w < 1) return [26, 32, 48];
+      return [Math.round(r / w), Math.round(g / w), Math.round(b / w)];
+    }
+
+    const canvas = document.getElementById("bleed");
+    const ctx = canvas.getContext("2d");
+    function sizeCanvas() {
+      const r = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(r.width * dpr);
+      canvas.height = Math.round(r.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      canvas._w = r.width; canvas._h = r.height;
+    }
+    sizeCanvas();
+    addEventListener("resize", () => { sizeCanvas(); render(); });
+
+    function hex(c) { return "rgb(" + c.join(",") + ")"; }
+
+    function render() {
+      const c = mix();
+      const sheen = +document.getElementById("sheen").value / 100;
+      const resist = +document.getElementById("resist").value / 100;
+      const total = bottles.reduce((s, b) => s + b.ratio, 0) || 1;
+      bottles.forEach(b => {
+        document.getElementById("fill-" + b.id).style.background = hex(PRESETS[b.key].rgb);
+        document.getElementById("meta-" + b.id).textContent =
+          PRESETS[b.key].n + " · " + Math.round(b.ratio / total * 100) + "%";
+      });
+      const sample = document.getElementById("sample");
+      sample.style.color = hex(c);
+      const edge = [
+        Math.min(255, c[0] + 80),
+        Math.max(0, c[1] - 20),
+        Math.min(255, c[2] + 40)
+      ];
+      const sh = "rgba(" + edge.join(",") + "," + (0.15 + sheen * 0.55) + ")";
+      sample.style.textShadow = sheen > 0.05
+        ? "0.6px 0 " + sh + ", -0.6px 0 " + sh + ", 0 0.7px " + sh
+        : "none";
+
+      const w = canvas._w || 640, h = canvas._h || 140;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "#efebe3";
+      ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 900; i++) {
+        ctx.fillStyle = "rgba(180,170,150," + (Math.random() * 0.12) + ")";
+        ctx.fillRect(Math.random() * w, Math.random() * h, 1.2, 1.2);
+      }
+      const bleed = 1 - resist;
+      ctx.strokeStyle = hex(c);
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(16, h * 0.45);
+      for (let x = 16; x < w - 16; x += 8) {
+        const y = h * 0.45 + Math.sin(x / 28) * 10 + Math.sin(x / 9) * 3;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      if (bleed > 0.08) {
+        ctx.globalAlpha = 0.18 + bleed * 0.35;
+        for (let i = 0; i < 40 + bleed * 80; i++) {
+          const x = 20 + Math.random() * (w - 40);
+          const y = h * 0.45 + Math.sin(x / 28) * 10 + (Math.random() - 0.5) * 18 * bleed;
+          ctx.beginPath();
+          ctx.fillStyle = hex(c);
+          ctx.arc(x, y, 1 + Math.random() * 4 * bleed, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+      document.getElementById("read").textContent =
+        "mix rgb(" + c.join(", ") + ") · sheen " + Math.round(sheen * 100) + "% · resistance " + Math.round(resist * 100) + "%";
+    }
+    document.getElementById("sheen").addEventListener("input", render);
+    document.getElementById("resist").addEventListener("input", render);
+    render();
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mirage — سراب</title>
+  <meta name="description" content="Draw on hot air. A sketchpad whose ink shimmers with a vertical heat-haze." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --asphalt: #4a3828;
+      --haze: #d8e4ee;
+      --heat: #f7f1e6;
+      --ochre: #c4843a;
+      --ink: #1c1410;
+      --blue: #4a6a8a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: "Outfit", system-ui, sans-serif;
+      background: var(--heat);
+      color: var(--asphalt);
+      min-height: 100dvh;
+    }
+    .home {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 20;
+      font-size: 0.75rem;
+      color: var(--asphalt);
+      text-decoration: none;
+      opacity: 0.4;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 10px;
+    }
+    .home:hover, .home:focus-visible { opacity: 1; }
+    h1 {
+      position: fixed;
+      top: 18px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-weight: 400;
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      pointer-events: none;
+      color: var(--asphalt);
+      opacity: 0.35;
+    }
+    h1 span {
+      display: block;
+      font-size: 0.7rem;
+      letter-spacing: 0.28em;
+      margin-top: 4px;
+    }
+    canvas#view {
+      display: block;
+      width: 100vw;
+      height: 100dvh;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .dock {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: rgba(247, 241, 230, 0.82);
+      border: 1px solid rgba(74, 56, 40, 0.18);
+      padding: 8px 10px;
+      max-width: calc(100vw - 24px);
+    }
+    .swatch {
+      width: 44px;
+      height: 44px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+    .swatch[aria-pressed="true"] { border-color: var(--asphalt); }
+    .swatch.ochre { background: var(--ochre); }
+    .swatch.blue { background: var(--blue); }
+    .swatch.ink { background: var(--ink); }
+    label.size {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    input[type="range"] {
+      width: 92px;
+      height: 44px;
+      accent-color: var(--asphalt);
+    }
+    button.clear {
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--asphalt);
+      background: transparent;
+      color: var(--asphalt);
+      font: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    button.clear:hover { background: rgba(74, 56, 40, 0.08); }
+    @media (prefers-reduced-motion: reduce) {
+      .dock { backdrop-filter: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="home" href="../">الخزانة</a>
+  <h1>Mirage<span>سراب</span></h1>
+  <canvas id="view" aria-label="Heat-haze sketchpad"></canvas>
+  <div class="dock">
+    <button type="button" class="swatch ochre" data-color="#c4843a" aria-pressed="true" aria-label="Dry ochre"></button>
+    <button type="button" class="swatch blue" data-color="#4a6a8a" aria-pressed="false" aria-label="Distant blue"></button>
+    <button type="button" class="swatch ink" data-color="#1c1410" aria-pressed="false" aria-label="Ink"></button>
+    <label class="size">Size <input id="size" type="range" min="2" max="36" value="8" /></label>
+    <button type="button" class="clear" id="clear">Clear</button>
+  </div>
+  <script>
+    (function () {
+      const view = document.getElementById("view");
+      const sizeEl = document.getElementById("size");
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const ink = document.createElement("canvas");
+      let color = "#c4843a";
+      let drawing = false;
+      let lastX = 0, lastY = 0;
+      let t = 0;
+      let cssW = 1, cssH = 1;
+      let vctx, ictx;
+
+      function fit() {
+        cssW = window.innerWidth;
+        cssH = window.innerHeight;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        view.width = Math.max(1, Math.floor(cssW * dpr));
+        view.height = Math.max(1, Math.floor(cssH * dpr));
+        ink.width = view.width;
+        ink.height = view.height;
+        vctx = view.getContext("2d");
+        ictx = ink.getContext("2d");
+        vctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ictx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        paintGround();
+      }
+
+      function paintGround() {
+        const g = ictx.createLinearGradient(0, 0, 0, cssH);
+        g.addColorStop(0, "#e8eef4");
+        g.addColorStop(0.42, "#f4ead8");
+        g.addColorStop(0.58, "#d8c4a4");
+        g.addColorStop(1, "#4a3828");
+        ictx.fillStyle = g;
+        ictx.fillRect(0, 0, cssW, cssH);
+        ictx.strokeStyle = "rgba(74,56,40,0.18)";
+        ictx.lineWidth = 1;
+        ictx.beginPath();
+        ictx.moveTo(0, cssH * 0.52);
+        ictx.lineTo(cssW, cssH * 0.52);
+        ictx.stroke();
+        const road = cssH * 0.52;
+        ictx.fillStyle = "#4a3828";
+        ictx.beginPath();
+        ictx.moveTo(cssW * 0.5 - 8, road);
+        ictx.lineTo(cssW * 0.12, cssH);
+        ictx.lineTo(cssW * 0.88, cssH);
+        ictx.lineTo(cssW * 0.5 + 8, road);
+        ictx.closePath();
+        ictx.fill();
+        ictx.strokeStyle = "rgba(247,241,230,0.25)";
+        ictx.setLineDash([10, 16]);
+        ictx.beginPath();
+        ictx.moveTo(cssW * 0.5, road);
+        ictx.lineTo(cssW * 0.5, cssH);
+        ictx.stroke();
+        ictx.setLineDash([]);
+      }
+
+      fit();
+      window.addEventListener("resize", function () {
+        const saved = document.createElement("canvas");
+        saved.width = ink.width;
+        saved.height = ink.height;
+        saved.getContext("2d").drawImage(ink, 0, 0);
+        fit();
+      });
+
+      document.querySelectorAll(".swatch").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          color = btn.getAttribute("data-color");
+          document.querySelectorAll(".swatch").forEach(function (b) {
+            b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+          });
+        });
+      });
+      document.getElementById("clear").addEventListener("click", function () {
+        paintGround();
+      });
+
+      function pos(e) {
+        const r = view.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
+      }
+      function stroke(x0, y0, x1, y1) {
+        ictx.strokeStyle = color;
+        ictx.lineWidth = Number(sizeEl.value);
+        ictx.lineCap = "round";
+        ictx.lineJoin = "round";
+        ictx.beginPath();
+        ictx.moveTo(x0, y0);
+        ictx.lineTo(x1, y1);
+        ictx.stroke();
+      }
+      view.addEventListener("pointerdown", function (e) {
+        drawing = true;
+        view.setPointerCapture(e.pointerId);
+        const p = pos(e);
+        lastX = p.x;
+        lastY = p.y;
+        stroke(p.x, p.y, p.x + 0.01, p.y);
+      });
+      view.addEventListener("pointermove", function (e) {
+        if (!drawing) return;
+        const p = pos(e);
+        stroke(lastX, lastY, p.x, p.y);
+        lastX = p.x;
+        lastY = p.y;
+      });
+      view.addEventListener("pointerup", function () { drawing = false; });
+      view.addEventListener("pointercancel", function () { drawing = false; });
+
+      function present() {
+        const dpr = view.width / Math.max(1, cssW);
+        const amp = (reduce ? 1.2 : 5.5) * dpr;
+        const speed = reduce ? 0.6 : 2.2;
+        const freq = 0.035;
+        const strip = Math.max(2, Math.round(3 * dpr));
+        vctx.setTransform(1, 0, 0, 1, 0, 0);
+        vctx.clearRect(0, 0, view.width, view.height);
+        vctx.imageSmoothingEnabled = true;
+        const W = view.width;
+        const H = view.height;
+        for (let x = 0; x < W; x += strip) {
+          const dy = Math.sin(t * speed + (x / dpr) * freq) * amp;
+          vctx.drawImage(ink, x, 0, strip, H, x, dy, strip, H);
+        }
+      }
+
+      let last = performance.now();
+      function loop(now) {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        t += dt;
+        present();
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>

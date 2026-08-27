@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Shortwave — موجة</title>
+  <meta name="description" content="A bakelite shortwave set. Tune 3–12 MHz through static until five hidden stations lock.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bakelite: #1a1c18;
+      --green: #4a9a4a;
+      --green-dim: #2a5a2a;
+      --face: #12140f;
+      --metal: #6a6e64;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; background: #0c0e0a; color: #c8d0c0; }
+    body {
+      font-family: "Share Tech Mono", ui-monospace, monospace;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+    }
+    .radio {
+      width: min(100%, 440px);
+      background:
+        linear-gradient(180deg, #24261f, var(--bakelite) 18%, #141612);
+      border-radius: 12px 12px 6px 6px;
+      padding: 18px 18px 16px;
+      box-shadow:
+        inset 0 1px 0 #3a3e34,
+        0 18px 40px rgba(0,0,0,0.55),
+        0 0 0 1px #0a0c08;
+    }
+    .plate {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+      color: #8a9080;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+    }
+    .plate strong { color: #c4c8b8; font-weight: 400; letter-spacing: 0.28em; }
+    .dial {
+      background: #0a0c08;
+      border: 3px solid #2a2e26;
+      border-radius: 4px;
+      padding: 10px 12px 8px;
+      position: relative;
+    }
+    .freq {
+      color: var(--green);
+      font-size: clamp(28px, 8vw, 40px);
+      letter-spacing: 0.08em;
+      text-shadow: 0 0 12px rgba(74,154,74,0.45);
+    }
+    .freq small { font-size: 0.4em; letter-spacing: 0.2em; color: var(--green-dim); }
+    .meter {
+      height: 36px;
+      margin-top: 8px;
+      position: relative;
+      background: #080a06;
+      border: 1px solid #2a3228;
+    }
+    .meter svg { display: block; width: 100%; height: 100%; }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 132px;
+      gap: 16px;
+      margin-top: 16px;
+      align-items: center;
+    }
+    label.slide {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      color: #7a8074;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 44px;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+    .knob-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .knob {
+      width: 112px;
+      height: 112px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 35% 30%, #3a3e36, #1a1c18 55%, #0c0e0a);
+      border: 4px solid #4a4e44;
+      position: relative;
+      touch-action: none;
+      cursor: grab;
+    }
+    .knob .tick {
+      position: absolute;
+      left: 50%;
+      top: 10px;
+      width: 4px;
+      height: 22px;
+      margin-left: -2px;
+      background: var(--green);
+      border-radius: 1px;
+      transform-origin: 50% 46px;
+    }
+    .knob:active { cursor: grabbing; }
+    .grille {
+      margin-top: 16px;
+      height: 54px;
+      background:
+        repeating-linear-gradient(90deg, #0e100c 0 6px, #1c1e18 6px 8px);
+      border-radius: 4px;
+      border: 1px solid #2a2e26;
+      position: relative;
+      overflow: hidden;
+    }
+    .grille .glow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(74,154,74,0.18), transparent 70%);
+      opacity: 0.2;
+      pointer-events: none;
+    }
+    .log {
+      margin-top: 14px;
+      border-top: 1px dashed #2a3228;
+      padding-top: 10px;
+      font-size: 12px;
+      line-height: 1.7;
+      color: #8a9a80;
+      min-height: 96px;
+    }
+    .log li { list-style: none; }
+    .log li.lock { color: var(--green); }
+    .hint {
+      font-size: 11px;
+      color: #6a7064;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+    .gate {
+      margin-top: 10px;
+    }
+    .gate button {
+      width: 100%;
+      min-height: 44px;
+      background: #22261e;
+      color: var(--green);
+      border: 1px solid var(--green-dim);
+      font-family: inherit;
+      letter-spacing: 0.16em;
+      cursor: pointer;
+    }
+    .vault {
+      display: inline-flex;
+      min-height: 44px;
+      align-items: center;
+      font-size: 11px;
+      color: #5a6054;
+      text-decoration: none;
+      letter-spacing: 0.12em;
+    }
+    @media (max-width: 420px) {
+      .row { grid-template-columns: 1fr; }
+      .knob-wrap { order: -1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .freq { text-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="radio">
+    <div class="plate">
+      <a class="vault" href="../">الخزانة</a>
+      <strong>AL-MAWJA</strong>
+      <span>SW · 3–12 MHz</span>
+    </div>
+    <div class="dial">
+      <div class="freq"><span id="mhz">7.000</span> <small>MHz</small></div>
+      <div class="meter" aria-label="Signal meter">
+        <svg viewBox="0 0 200 36" id="meterSvg">
+          <rect x="8" y="26" width="184" height="2" fill="#2a4a2a"/>
+          <line id="needle" x1="100" y1="30" x2="100" y2="8" stroke="#4a9a4a" stroke-width="2"/>
+        </svg>
+      </div>
+    </div>
+    <div class="row">
+      <label class="slide">FINE TUNE
+        <input id="slider" type="range" min="3000" max="12000" value="7000" step="1">
+      </label>
+      <div class="knob-wrap">
+        <div class="knob" id="knob" role="slider" aria-valuemin="3" aria-valuemax="12" aria-valuenow="7" aria-label="Frequency knob">
+          <div class="tick" id="tick"></div>
+        </div>
+        <span style="font-size:10px;color:#6a7064;letter-spacing:0.16em">TUNING</span>
+      </div>
+    </div>
+    <div class="grille"><div class="glow" id="glow"></div></div>
+    <ul class="log" id="log"></ul>
+    <p class="hint" id="hint">Touch the set to power the speaker. Static first. Stations hide on exact kilocycles.</p>
+    <div class="gate"><button type="button" id="pwr">POWER · UNLOCK AUDIO</button></div>
+  </div>
+  <script>
+(function () {
+  "use strict";
+  var MIN = 3, MAX = 12;
+  var freq = 7.0;
+  var slider = document.getElementById("slider");
+  var mhzEl = document.getElementById("mhz");
+  var tick = document.getElementById("tick");
+  var needle = document.getElementById("needle");
+  var glow = document.getElementById("glow");
+  var logEl = document.getElementById("log");
+  var hint = document.getElementById("hint");
+  var pwr = document.getElementById("pwr");
+  var knob = document.getElementById("knob");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var stations = [
+    { mhz: 3.850, name: "Beacon A17", found: false, kind: "morse" },
+    { mhz: 5.210, name: "Two-tone Gulf", found: false, kind: "two" },
+    { mhz: 7.155, name: "Carrier 7155", found: false, kind: "drone" },
+    { mhz: 9.420, name: "Pulse net", found: false, kind: "pulse" },
+    { mhz: 11.250, name: "Night music", found: false, kind: "tune" }
+  ];
+
+  var audio = null;
+  var last = 0;
+  var needleX = 100;
+  var sigTarget = 0;
+  var sigShow = 0;
+  var phase = 0;
+
+  function unlock() {
+    if (audio) {
+      if (audio.ctx.state === "suspended") audio.ctx.resume();
+      return;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) {
+      hint.textContent = "Web Audio unavailable in this browser.";
+      return;
+    }
+    var ctx = new AC();
+    var master = ctx.createGain();
+    master.gain.value = 0.22;
+    master.connect(ctx.destination);
+
+    var nLen = ctx.sampleRate * 2;
+    var nBuf = ctx.createBuffer(1, nLen, ctx.sampleRate);
+    var nd = nBuf.getChannelData(0);
+    for (var i = 0; i < nLen; i++) nd[i] = Math.random() * 2 - 1;
+    var noise = ctx.createBufferSource();
+    noise.buffer = nBuf;
+    noise.loop = true;
+    var nFilter = ctx.createBiquadFilter();
+    nFilter.type = "bandpass";
+    nFilter.frequency.value = 1200;
+    nFilter.Q.value = 0.7;
+    var nGain = ctx.createGain();
+    nGain.gain.value = 0.45;
+    noise.connect(nFilter);
+    nFilter.connect(nGain);
+    nGain.connect(master);
+    noise.start();
+
+    var oscA = ctx.createOscillator();
+    var oscB = ctx.createOscillator();
+    oscA.type = "sine";
+    oscB.type = "square";
+    oscA.frequency.value = 440;
+    oscB.frequency.value = 220;
+    var gA = ctx.createGain();
+    var gB = ctx.createGain();
+    gA.gain.value = 0;
+    gB.gain.value = 0;
+    oscA.connect(gA);
+    oscB.connect(gB);
+    gA.connect(master);
+    gB.connect(master);
+    oscA.start();
+    oscB.start();
+
+    var lfo = ctx.createOscillator();
+    var lfoG = ctx.createGain();
+    lfo.frequency.value = 4;
+    lfoG.gain.value = 0;
+    lfo.connect(lfoG);
+    lfoG.connect(gA.gain);
+    lfo.start();
+
+    audio = {
+      ctx: ctx, master: master, nFilter: nFilter, nGain: nGain,
+      oscA: oscA, oscB: oscB, gA: gA, gB: gB, lfo: lfo, lfoG: lfoG
+    };
+    pwr.style.display = "none";
+    hint.textContent = "Drag the knob or slider. Fine-tune until the needle climbs.";
+    renderLog();
+  }
+
+  function nearest() {
+    var best = stations[0], bestD = 99;
+    for (var i = 0; i < stations.length; i++) {
+      var d = Math.abs(stations[i].mhz - freq);
+      if (d < bestD) { bestD = d; best = stations[i]; }
+    }
+    return { s: best, d: bestD };
+  }
+
+  function strength(d) {
+    var bw = 0.085;
+    if (d > 0.55) return 0;
+    return Math.exp(-(d * d) / (2 * bw * bw));
+  }
+
+  function applyAudio(now) {
+    if (!audio) return;
+    var n = nearest();
+    var st = strength(n.d);
+    var t = audio.ctx.currentTime;
+    var noiseAmt = 0.5 * (1 - st * 0.92);
+    audio.nGain.gain.setTargetAtTime(Math.max(0.04, noiseAmt), t, 0.05);
+    audio.nFilter.frequency.setTargetAtTime(600 + (freq - 3) * 180, t, 0.08);
+    audio.gA.gain.setTargetAtTime(0, t, 0.04);
+    audio.gB.gain.setTargetAtTime(0, t, 0.04);
+    audio.lfoG.gain.setTargetAtTime(0, t, 0.04);
+    if (st < 0.05) {
+      sigTarget = st;
+      audio.oscA.type = "sine";
+      audio.oscB.type = "square";
+      return;
+    }
+    sigTarget = st;
+    var kind = n.s.kind;
+    if (kind === "morse") {
+      audio.oscA.type = "sine";
+      audio.oscB.type = "square";
+      var unit = 0.12;
+      var seq = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0];
+      var step = Math.floor((now / unit) % seq.length);
+      var on = seq[step] ? st * 0.22 : 0;
+      audio.oscA.frequency.setTargetAtTime(680, t, 0.02);
+      audio.gA.gain.setTargetAtTime(on, t, 0.02);
+    } else if (kind === "two") {
+      audio.oscA.type = "sine";
+      audio.oscB.type = "sine";
+      audio.oscA.frequency.setTargetAtTime(440, t, 0.05);
+      audio.oscB.frequency.setTargetAtTime(494, t, 0.05);
+      audio.gA.gain.setTargetAtTime(st * 0.14, t, 0.05);
+      audio.gB.gain.setTargetAtTime(st * 0.1, t, 0.05);
+    } else if (kind === "drone") {
+      audio.oscA.type = "sawtooth";
+      audio.oscB.type = "sine";
+      audio.oscA.frequency.setTargetAtTime(180, t, 0.08);
+      audio.gA.gain.setTargetAtTime(st * 0.08, t, 0.08);
+      audio.lfo.frequency.setTargetAtTime(0.4, t, 0.1);
+      audio.lfoG.gain.setTargetAtTime(st * 0.04, t, 0.1);
+    } else if (kind === "pulse") {
+      audio.oscA.type = "square";
+      audio.oscB.type = "sine";
+      var p = (Math.sin(now * 8) > 0.2) ? st * 0.16 : 0;
+      audio.oscA.frequency.setTargetAtTime(220, t, 0.02);
+      audio.gA.gain.setTargetAtTime(p * 0.35, t, 0.03);
+    } else if (kind === "tune") {
+      audio.oscA.type = "triangle";
+      audio.oscB.type = "sine";
+      var notes = [262, 294, 330, 392, 330, 294];
+      var idx = Math.floor(now * 2.2) % notes.length;
+      audio.oscA.frequency.setTargetAtTime(notes[idx], t, 0.04);
+      audio.gA.gain.setTargetAtTime(st * 0.14, t, 0.06);
+      audio.oscB.frequency.setTargetAtTime(notes[idx] * 1.5, t, 0.06);
+      audio.gB.gain.setTargetAtTime(st * 0.05, t, 0.06);
+    }
+    if (st > 0.72 && !n.s.found) {
+      n.s.found = true;
+      renderLog();
+      var left = stations.filter(function (s) { return !s.found; }).length;
+      hint.textContent = left ? ("Locked. " + left + " still in the hiss.") : "Log complete. Five stations. The night is mapped.";
+    }
+  }
+
+  function renderLog() {
+    logEl.innerHTML = stations.map(function (s) {
+      if (s.found) return "<li class='lock'>" + s.mhz.toFixed(3) + "  " + s.name + "  LOCK</li>";
+      return "<li>— — —.— — — &nbsp; unknown</li>";
+    }).join("");
+  }
+
+  function setFreq(v) {
+    freq = Math.max(MIN, Math.min(MAX, v));
+    mhzEl.textContent = freq.toFixed(3);
+    slider.value = String(Math.round(freq * 1000));
+    var ang = ((freq - MIN) / (MAX - MIN)) * 280 - 140;
+    tick.style.transform = "rotate(" + ang + "deg)";
+    knob.setAttribute("aria-valuenow", freq.toFixed(2));
+  }
+
+  function loop(nowMs) {
+    if (!last) last = nowMs;
+    var dt = (nowMs - last) / 1000;
+    last = nowMs;
+    if (dt > 0.1) dt = 0.1;
+    phase += dt;
+    applyAudio(phase);
+    var k = 1 - Math.exp(-8 * dt);
+    sigShow += (sigTarget - sigShow) * k;
+    var nx = 18 + sigShow * 164;
+    if (reduce) needleX = nx;
+    else needleX += (nx - needleX) * k;
+    needle.setAttribute("x2", String(needleX));
+    needle.setAttribute("x1", String(needleX));
+    glow.style.opacity = String(0.12 + sigShow * 0.7);
+    requestAnimationFrame(loop);
+  }
+
+  slider.addEventListener("input", function () {
+    unlock();
+    setFreq(Number(slider.value) / 1000);
+  });
+  pwr.addEventListener("click", unlock);
+  ["pointerdown", "keydown"].forEach(function (ev) {
+    window.addEventListener(ev, unlock, { once: true });
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && audio && audio.ctx.state === "suspended") audio.ctx.resume();
+  });
+
+  var dragging = false, lastAng = 0;
+  function angAt(e) {
+    var r = knob.getBoundingClientRect();
+    return Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2));
+  }
+  knob.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    unlock();
+    dragging = true;
+    lastAng = angAt(e);
+    knob.setPointerCapture(e.pointerId);
+  });
+  knob.addEventListener("pointermove", function (e) {
+    if (!dragging) return;
+    var a = angAt(e);
+    var d = a - lastAng;
+    if (d > Math.PI) d -= Math.PI * 2;
+    if (d < -Math.PI) d += Math.PI * 2;
+    lastAng = a;
+    setFreq(freq + d * 0.55);
+  });
+  knob.addEventListener("pointerup", function () { dragging = false; });
+  knob.addEventListener("pointercancel", function () { dragging = false; });
+
+  renderLog();
+  setFreq(7);
+  requestAnimationFrame(loop);
+})();
+  </script>
+</body>
+</html>

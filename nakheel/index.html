@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>نخيل — Nakheel</title>
+  <meta name="description" content="أنمِ نخلة عبر ثمانين عامًا: من فسيلة إلى معمّرة، مع الجذع والسعف والعذوق." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --palm: #3a7a40;
+      --palm-dark: #1e4a24;
+      --amber: #c48a3a;
+      --sky: #eef4e4;
+      --ink: #1a3020;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "IBM Plex Sans Arabic", "Amiri", sans-serif;
+      background: var(--sky);
+      color: var(--ink);
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+    .home {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      z-index: 20;
+      font-size: 0.78rem;
+      color: var(--ink);
+      text-decoration: none;
+      opacity: 0.4;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 10px;
+    }
+    .home:hover, .home:focus-visible { opacity: 1; }
+    header {
+      padding: 48px 22px 0;
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .latin {
+      font-size: 0.72rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      opacity: 0.5;
+      font-family: "IBM Plex Sans Arabic", sans-serif;
+    }
+    h1 {
+      font-family: "Amiri", serif;
+      font-size: clamp(2.4rem, 9vw, 4rem);
+      font-weight: 700;
+      line-height: 1;
+      margin-top: 6px;
+    }
+    header p.lead {
+      font-family: "Amiri", serif;
+      font-style: italic;
+      font-size: 1.05rem;
+      opacity: 0.7;
+      margin-top: 6px;
+    }
+    .stage {
+      position: relative;
+      min-height: 320px;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: manipulation;
+    }
+    .caption {
+      position: absolute;
+      top: 12px;
+      right: 18px;
+      font-family: "Amiri", serif;
+      font-size: clamp(1.4rem, 5vw, 2.2rem);
+      color: var(--palm-dark);
+      pointer-events: none;
+      line-height: 1.2;
+    }
+    .caption small {
+      display: block;
+      font-family: "IBM Plex Sans Arabic", sans-serif;
+      font-size: 0.75rem;
+      opacity: 0.55;
+      margin-top: 2px;
+    }
+    footer {
+      padding: 8px 20px 20px;
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    footer label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.85rem;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 44px;
+      accent-color: var(--palm);
+    }
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      opacity: 0.65;
+      margin-top: 2px;
+    }
+    .note {
+      font-size: 0.75rem;
+      opacity: 0.5;
+      margin-top: 8px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="home" href="../">الخزانة</a>
+  <header>
+    <p class="latin">Phoenix dactylifera</p>
+    <h1>نخيل</h1>
+    <p class="lead">ثمانون عامًا في جذعٍ واحد.</p>
+  </header>
+  <div class="stage">
+    <canvas id="c" aria-label="نخلة تنمو مع السنين"></canvas>
+    <div class="caption" id="stageName">فسيلة<small>seedling</small></div>
+  </div>
+  <footer>
+    <label>
+      السنة — <span id="yearLabel">0</span>
+      <input id="year" type="range" min="0" max="80" value="22" />
+    </label>
+    <div class="meta">
+      <span>فسيلة</span>
+      <span>يافعة</span>
+      <span>مثمرة</span>
+      <span>معمّرة</span>
+    </div>
+    <p class="note">انقر السعف لريحٍ خفيفة. النمو حقيقي: حلقات الجذع، عدد السعف، ثم العذوق بعد السنة الثامنة.</p>
+  </footer>
+  <script>
+    (function () {
+      const canvas = document.getElementById("c");
+      const yearEl = document.getElementById("year");
+      const yearLabel = document.getElementById("yearLabel");
+      const stageName = document.getElementById("stageName");
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let windOn = true;
+      let t = 0;
+      let dpr = 1;
+
+      function fit() {
+        const r = canvas.getBoundingClientRect();
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.floor(r.width * dpr));
+        canvas.height = Math.max(1, Math.floor(r.height * dpr));
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        return ctx;
+      }
+      let ctx = fit();
+      window.addEventListener("resize", function () { ctx = fit(); });
+
+      function lerp(a, b, t) { return a + (b - a) * t; }
+      function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+      function smooth(t) { return t * t * (3 - 2 * t); }
+
+      function stageFor(y) {
+        if (y < 3) return { ar: "فسيلة", en: "seedling" };
+        if (y < 8) return { ar: "يافعة", en: "juvenile" };
+        if (y < 52) return { ar: "مثمرة", en: "bearing" };
+        return { ar: "معمّرة", en: "ancient" };
+      }
+
+      function drawFrond(ctx, x, y, ang, len, droop, wind, seed) {
+        const steps = 14;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        const pts = [];
+        for (let i = 0; i <= steps; i++) {
+          const u = i / steps;
+          const bend = droop * u * u * len * 0.55;
+          const sway = wind * Math.sin(t * 1.4 + seed + u * 2) * u * 10;
+          const px = x + Math.cos(ang) * len * u + Math.cos(ang + Math.PI / 2) * (bend + sway * 0.15);
+          const py = y + Math.sin(ang) * len * u + bend * 0.85;
+          pts.push({ x: px, y: py, u: u });
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.strokeStyle = "#1e4a24";
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        for (let i = 2; i < pts.length; i++) {
+          const p = pts[i];
+          const prev = pts[i - 1];
+          const dx = p.x - prev.x;
+          const dy = p.y - prev.y;
+          const n = Math.hypot(dx, dy) || 1;
+          const px = -dy / n;
+          const py = dx / n;
+          const leaflet = len * 0.16 * (1 - p.u * 0.55);
+          const g = 40 + (seed * 13 + i * 3) % 22;
+          ctx.strokeStyle = "rgb(" + (30 + g * 0.4) + "," + (90 + g) + "," + (40 + g * 0.2) + ")";
+          ctx.lineWidth = 1.15;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + px * leaflet + dx * 0.2, p.y + py * leaflet + dy * 0.15);
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x - px * leaflet + dx * 0.2, p.y - py * leaflet + dy * 0.15);
+          ctx.stroke();
+        }
+      }
+
+      function drawBunch(ctx, x, y, scale, wind) {
+        const n = 18;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI - Math.PI / 2 + Math.sin(t + i) * 0.04 * wind;
+          const r = 6 * scale + (i % 5) * 2.2 * scale;
+          const px = x + Math.cos(a) * r * 0.45;
+          const py = y + 8 * scale + Math.abs(Math.sin(a)) * 16 * scale + (i % 3) * 3;
+          ctx.beginPath();
+          ctx.ellipse(px, py, 3.1 * scale, 4.4 * scale, a * 0.2, 0, Math.PI * 2);
+          ctx.fillStyle = i % 2 ? "#c48a3a" : "#a86e28";
+          ctx.fill();
+        }
+        ctx.strokeStyle = "#5a3a14";
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.quadraticCurveTo(x + 4, y + 10 * scale, x, y + 18 * scale);
+        ctx.stroke();
+      }
+
+      function draw() {
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        const year = Number(yearEl.value);
+        yearLabel.textContent = String(year);
+        const st = stageFor(year);
+        stageName.innerHTML = st.ar + "<small>" + st.en + "</small>";
+
+        ctx.clearRect(0, 0, w, h);
+        const sky = ctx.createLinearGradient(0, 0, 0, h);
+        sky.addColorStop(0, "#f7faef");
+        sky.addColorStop(0.55, "#eef4e4");
+        sky.addColorStop(1, "#dce8cc");
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, w, h);
+
+        const groundY = h * 0.86;
+        ctx.fillStyle = "#d5c4a0";
+        ctx.beginPath();
+        ctx.moveTo(0, groundY + 18);
+        ctx.quadraticCurveTo(w * 0.3, groundY - 8, w * 0.55, groundY + 10);
+        ctx.quadraticCurveTo(w * 0.8, groundY + 22, w, groundY);
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "rgba(196,138,58,0.18)";
+        ctx.fillRect(0, groundY + 20, w, h - groundY);
+
+        const age = year / 80;
+        const trunkH = lerp(h * 0.04, h * 0.62, smooth(clamp(year / 70, 0, 1)));
+        const trunkW = lerp(7, 28, smooth(clamp(year / 25, 0, 1)));
+        const baseW = trunkW * lerp(1.1, 1.55, clamp((year - 10) / 50, 0, 1));
+        const cx = w * 0.46;
+        const wind = (reduce || !windOn) ? 0 : 1;
+        const crownY = groundY - trunkH;
+        const sway = wind * Math.sin(t * 0.7) * lerp(0, 6, clamp((year - 4) / 20, 0, 1));
+
+        if (year < 2.2) {
+          ctx.strokeStyle = "#3a7a40";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(cx, groundY);
+          ctx.lineTo(cx, groundY - 18 - year * 10);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(cx - baseW, groundY);
+          ctx.lineTo(cx - trunkW * 0.55 + sway * 0.15, crownY + 8);
+          ctx.lineTo(cx + trunkW * 0.55 + sway * 0.15, crownY + 8);
+          ctx.lineTo(cx + baseW, groundY);
+          ctx.closePath();
+          const bark = ctx.createLinearGradient(cx - baseW, 0, cx + baseW, 0);
+          bark.addColorStop(0, "#5a4030");
+          bark.addColorStop(0.45, "#8a6a48");
+          bark.addColorStop(1, "#4a3424");
+          ctx.fillStyle = bark;
+          ctx.fill();
+
+          const rings = Math.floor(lerp(4, 42, clamp(year / 80, 0, 1)));
+          ctx.strokeStyle = "rgba(30,40,20,0.28)";
+          ctx.lineWidth = 1;
+          for (let i = 0; i < rings; i++) {
+            const u = i / rings;
+            const yy = groundY - u * trunkH;
+            const ww = lerp(baseW, trunkW * 0.55, u);
+            ctx.beginPath();
+            ctx.moveTo(cx - ww + 1, yy);
+            ctx.lineTo(cx + ww - 1, yy + (i % 2 ? 2 : -1));
+            ctx.stroke();
+            if (i % 3 === 0) {
+              ctx.beginPath();
+              ctx.moveTo(cx - ww * 0.6, yy);
+              ctx.lineTo(cx - ww * 0.15, yy - 4);
+              ctx.lineTo(cx + ww * 0.1, yy);
+              ctx.stroke();
+            }
+          }
+        }
+
+        const frondN = year < 1 ? 3 : Math.round(lerp(4, 22, smooth(clamp(year / 18, 0, 1))));
+        const frondLen = lerp(h * 0.1, h * 0.28, smooth(clamp(year / 16, 0, 1)));
+        const droopBase = lerp(0.05, 0.85, smooth(clamp((year - 20) / 50, 0, 1)));
+
+        for (let i = 0; i < frondN; i++) {
+          const side = i % 2 === 0 ? -1 : 1;
+          const row = Math.floor(i / 2);
+          const spread = lerp(0.5, 1.15, clamp(year / 12, 0, 1));
+          const ang = -Math.PI / 2 + side * (0.25 + row * 0.18) * spread;
+          const lower = row > frondN * 0.35;
+          const droop = droopBase + (lower ? 0.35 : 0) + (year > 55 && lower ? 0.4 : 0);
+          const len = frondLen * (lower ? 1.05 : 0.92);
+          drawFrond(ctx, cx + sway, crownY + 6, ang, len, droop, wind, i * 1.7);
+        }
+
+        if (year >= 8) {
+          const bunches = year < 12 ? 1 : year < 50 ? 3 : 2;
+          const scale = clamp((year - 8) / 4, 0.35, 1) * (year > 60 ? 0.7 : 1);
+          for (let b = 0; b < bunches; b++) {
+            const side = b % 2 === 0 ? -1 : 1;
+            drawBunch(
+              ctx,
+              cx + side * (18 + b * 6) + sway,
+              crownY + 14 + b * 6,
+              scale,
+              wind
+            );
+          }
+        }
+
+        if (year < 6) {
+          ctx.fillStyle = "#3a7a40";
+          ctx.beginPath();
+          ctx.ellipse(cx - 16, groundY - 4, 7, 4, -0.4, 0, Math.PI * 2);
+          ctx.ellipse(cx + 14, groundY - 3, 6, 3.5, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      canvas.addEventListener("pointerdown", function () {
+        windOn = !windOn;
+      });
+      yearEl.addEventListener("input", draw);
+
+      let last = performance.now();
+      function loop(now) {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        if (!reduce) t += dt;
+        draw();
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>

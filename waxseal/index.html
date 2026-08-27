@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wax Seal — Personal Impression</title>
+  <meta name="description" content="Design a circular sealing-wax impression: initials, motif, ring text, then press and download the PNG.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <style>
+    :root { --wax: #a82028; --parch: #f6ead8; --brass: #c4a05a; --ink: #3a1810; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; }
+    body {
+      font-family: "Source Serif 4", Georgia, serif;
+      background: var(--parch);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .desk {
+      min-height: 100dvh;
+      background:
+        radial-gradient(ellipse at 80% 20%, rgba(196,160,90,0.18), transparent 40%),
+        repeating-linear-gradient(90deg, #f1e2c8 0 40px, #f6ead8 40px 80px);
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      padding: 24px 16px 80px;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    @media (min-width: 860px) {
+      .desk { grid-template-columns: 320px 1fr; align-items: start; padding-top: 40px; }
+    }
+    h1 {
+      font-family: Cinzel, serif;
+      font-size: clamp(1.8rem, 5vw, 2.4rem);
+      letter-spacing: 0.16em;
+      font-weight: 500;
+    }
+    .lede { margin: 8px 0 16px; font-size: 0.95rem; opacity: 0.8; line-height: 1.5; }
+    label { display: block; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; margin: 12px 0 6px; font-family: Cinzel, serif; }
+    input, select {
+      width: 100%; min-height: 48px; padding: 8px 12px;
+      border: 1px solid #c4a05a; background: #fff8ec; color: var(--ink);
+      font-family: inherit; font-size: 1rem;
+    }
+    .motifs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .motifs button {
+      min-height: 48px; cursor: pointer; font-family: inherit;
+      background: #fff8ec; border: 1px solid var(--brass); color: var(--ink);
+    }
+    .motifs button[aria-pressed="true"] { background: var(--wax); color: var(--parch); border-color: var(--wax); }
+    .row { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .row button {
+      min-height: 48px; padding: 0 16px; cursor: pointer; font-family: Cinzel, serif;
+      letter-spacing: 0.08em; border: 0;
+    }
+    .press { background: var(--wax); color: var(--parch); flex: 1; }
+    .dl { background: var(--brass); color: var(--ink); flex: 1; }
+    .preview {
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      padding-top: 8px;
+    }
+    .wax-stage {
+      width: min(340px, 88vw);
+      height: min(340px, 88vw);
+      position: relative;
+    }
+    canvas#seal {
+      width: 100%; height: 100%; display: block; border-radius: 50%;
+    }
+    .stamp-arm {
+      position: absolute; left: 50%; top: -30%;
+      width: 72px; margin-left: -36px;
+      transform: translateY(-120%);
+      pointer-events: none;
+      transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .stamp-arm.down { transform: translateY(18%); }
+    .handle {
+      width: 72px; height: 90px;
+      background: linear-gradient(#d4b86a, #8a7030);
+      border-radius: 8px 8px 4px 4px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.25);
+    }
+    .handle::after {
+      content: ""; display: block; width: 48px; height: 18px; margin: 70px auto 0;
+      background: #6a2018; border-radius: 50%;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .stamp-arm { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="desk">
+    <form class="form" id="form" onsubmit="return false">
+      <h1>Wax Seal</h1>
+      <p class="lede">A brass die, a pool of sealing wax. One to three initials, a surrounding motif, a ring legend — then press.</p>
+      <label for="ini">Initials / الأحرف</label>
+      <input id="ini" type="text" maxlength="3" value="AB" autocomplete="off" spellcheck="false">
+      <label for="ring">Ring text</label>
+      <input id="ring" type="text" maxlength="42" value="SIGILLUM · PRIVATUM" autocomplete="off">
+      <label>Motif</label>
+      <div class="motifs" id="motifs"></div>
+      <div class="row">
+        <button class="press" id="press" type="button">Press</button>
+        <button class="dl" id="dl" type="button">Download PNG</button>
+      </div>
+    </form>
+    <div class="preview">
+      <div class="wax-stage">
+        <div class="stamp-arm" id="arm"><div class="handle"></div></div>
+        <canvas id="seal" width="340" height="340" aria-label="Wax seal preview"></canvas>
+      </div>
+    </div>
+  </div>
+  <a href="../" style="position:fixed;bottom:12px;inset-inline-start:12px;z-index:50;font-size:11px;letter-spacing:.12em;opacity:.4;color:#3a1810;text-decoration:none">الخزانة</a>
+  <script>
+  (function () {
+    const MOTIFS = ["laurel", "sunburst", "star", "rope"];
+    const LABELS = { laurel: "Laurel", sunburst: "Sunburst", star: "Star", rope: "Rope" };
+    let motif = "laurel";
+    let squish = 1;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const box = document.getElementById("motifs");
+    MOTIFS.forEach(m => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = LABELS[m];
+      b.setAttribute("aria-pressed", m === motif ? "true" : "false");
+      b.addEventListener("click", () => {
+        motif = m;
+        box.querySelectorAll("button").forEach(el => el.setAttribute("aria-pressed", "false"));
+        b.setAttribute("aria-pressed", "true");
+        draw();
+      });
+      box.appendChild(b);
+    });
+
+    const canvas = document.getElementById("seal");
+    const ctx = canvas.getContext("2d");
+    let S = 340;
+    function sizeCanvas() {
+      const r = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(r.width * dpr);
+      canvas.height = Math.round(r.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      S = r.width;
+    }
+    sizeCanvas();
+    addEventListener("resize", () => { sizeCanvas(); draw(); });
+
+    function reliefText(str, x, y, size, align) {
+      const arabic = /[\u0600-\u06FF]/.test(str);
+      const font = "700 " + size + "px " + (arabic
+        ? "serif"
+        : "Cinzel, serif");
+      ctx.font = font;
+      ctx.textAlign = align || "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(40,8,8,0.55)";
+      ctx.fillText(str, x + 1.5, y + 1.5);
+      ctx.fillStyle = "rgba(255,210,180,0.55)";
+      ctx.fillText(str, x - 1.2, y - 1.2);
+      ctx.fillStyle = "#6a1418";
+      ctx.fillText(str, x, y);
+    }
+
+    function drawMotif(cx, cy, r) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.strokeStyle = "rgba(50,10,12,0.55)";
+      ctx.fillStyle = "rgba(50,10,12,0.45)";
+      ctx.lineWidth = 2;
+      if (motif === "laurel") {
+        for (let side = -1; side <= 1; side += 2) {
+          for (let i = 0; i < 9; i++) {
+            const a = -0.2 + i * 0.22;
+            ctx.save();
+            ctx.rotate(side * a);
+            ctx.beginPath();
+            ctx.ellipse(side * (r * 0.72), 0, 7, 14, side * 0.8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      } else if (motif === "sunburst") {
+        for (let i = 0; i < 24; i++) {
+          const a = (i / 24) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55);
+          ctx.lineTo(Math.cos(a) * r * 0.86, Math.sin(a) * r * 0.86);
+          ctx.stroke();
+        }
+      } else if (motif === "star") {
+        ctx.beginPath();
+        for (let i = 0; i < 16; i++) {
+          const a = i * Math.PI / 8 - Math.PI / 2;
+          const rr = i % 2 ? r * 0.58 : r * 0.82;
+          ctx[i ? "lineTo" : "moveTo"](Math.cos(a) * rr, Math.sin(a) * rr);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        for (let i = 0; i <= 80; i++) {
+          const a = (i / 80) * Math.PI * 2;
+          const rr = r * 0.78 + Math.sin(i * 0.9) * 5;
+          ctx[i ? "lineTo" : "moveTo"](Math.cos(a) * rr, Math.sin(a) * rr);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function draw() {
+      const ini = (document.getElementById("ini").value || " ").slice(0, 3);
+      const ring = document.getElementById("ring").value || "";
+      ctx.clearRect(0, 0, S, S);
+      const cx = S / 2, cy = S / 2, r = (S / 2 - 6) * squish;
+      const g = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.3, r * 0.1, cx, cy, r);
+      g.addColorStop(0, "#d04048");
+      g.addColorStop(0.45, "#a82028");
+      g.addColorStop(0.85, "#6e1018");
+      g.addColorStop(1, "#3a080c");
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(40,8,10,0.5)";
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(80,16,20,0.4)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      drawMotif(cx, cy, r);
+
+      if (ring) {
+        const chars = ring.split("");
+        ctx.save();
+        ctx.translate(cx, cy);
+        const n = chars.length;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 - Math.PI / 2;
+          ctx.save();
+          ctx.rotate(a);
+          ctx.translate(0, -r * 0.88);
+          reliefText(chars[i], 0, 0, Math.max(9, r * 0.075));
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+      reliefText(ini, cx, cy + 4, Math.max(28, r * 0.32));
+    }
+
+    ["ini", "ring"].forEach(id => document.getElementById(id).addEventListener("input", draw));
+
+    document.getElementById("press").addEventListener("click", () => {
+      const arm = document.getElementById("arm");
+      arm.classList.add("down");
+      squish = reduce ? 1 : 1.06;
+      draw();
+      setTimeout(() => {
+        squish = 1;
+        draw();
+        arm.classList.remove("down");
+      }, reduce ? 0 : 500);
+    });
+
+    document.getElementById("dl").addEventListener("click", () => {
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = "wax-seal.png";
+      a.click();
+    });
+    draw();
+  })();
+  </script>
+</body>
+</html>

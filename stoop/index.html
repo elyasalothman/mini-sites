@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Stoop — انقضاض</title>
+  <meta name="description" content="Time a falcon’s stoop. Tap at the instant talons meet hare — eight rounds, milliseconds counted.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sky-top: #d8e8f4;
+      --sky-mid: #b7cfe0;
+      --horizon: #9eb8c8;
+      --rock: #5a4a3c;
+      --rock-dark: #3a3028;
+      --gold: #c4a05a;
+      --ink: #102030;
+      --hare: #6a5848;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--sky-top); color: var(--ink); }
+    body {
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    canvas { display: block; width: 100%; height: 100%; cursor: pointer; }
+    .mast {
+      position: absolute;
+      top: max(12px, env(safe-area-inset-top));
+      left: 16px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .mast h1 {
+      font-family: Oswald, sans-serif;
+      font-weight: 700;
+      font-size: clamp(28px, 8vw, 52px);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      line-height: 0.9;
+      color: var(--ink);
+    }
+    .mast h1 span {
+      display: block;
+      font-size: 0.42em;
+      letter-spacing: 0.28em;
+      color: var(--gold);
+      margin-top: 4px;
+    }
+    .hud {
+      position: absolute;
+      top: max(14px, env(safe-area-inset-top));
+      right: 16px;
+      text-align: right;
+      z-index: 2;
+      pointer-events: none;
+      font-family: Oswald, sans-serif;
+    }
+    .hud .round {
+      font-size: 13px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #2a4050;
+    }
+    .hud .best {
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--gold);
+      margin-top: 2px;
+    }
+    .cue {
+      position: absolute;
+      left: 50%;
+      bottom: max(28px, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      z-index: 2;
+      text-align: center;
+      pointer-events: none;
+      min-width: 220px;
+    }
+    .cue .grade {
+      font-family: Oswald, sans-serif;
+      font-size: clamp(28px, 7vw, 44px);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink);
+      text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+    }
+    .cue .ms {
+      font-size: 15px;
+      letter-spacing: 0.08em;
+      color: #2a4050;
+      margin-top: 4px;
+    }
+    .cue .hint {
+      font-size: 14px;
+      color: #304050;
+      max-width: 280px;
+      margin: 0 auto;
+      line-height: 1.4;
+    }
+    .vault {
+      position: absolute;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      left: 14px;
+      z-index: 3;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      color: #3a5060;
+      text-decoration: none;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.72;
+    }
+    .vault:hover, .vault:focus { opacity: 1; color: var(--ink); }
+    .again {
+      position: absolute;
+      left: 50%;
+      bottom: max(88px, calc(env(safe-area-inset-bottom) + 72px));
+      transform: translateX(-50%);
+      z-index: 3;
+      display: none;
+      min-height: 44px;
+      min-width: 160px;
+      padding: 10px 22px;
+      border: 1px solid var(--gold);
+      background: rgba(216,232,244,0.85);
+      color: var(--ink);
+      font-family: Oswald, sans-serif;
+      font-size: 16px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .again:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+    @media (prefers-reduced-motion: reduce) {
+      .cue .grade { letter-spacing: 0.12em; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c" aria-label="Falcon stoop sky"></canvas>
+  <div class="mast">
+    <h1>Stoop<span>انقضاض</span></h1>
+  </div>
+  <div class="hud">
+    <div class="round" id="roundLbl">Circle — tap to begin</div>
+    <div class="best" id="bestLbl"></div>
+  </div>
+  <div class="cue">
+    <div class="grade" id="grade"></div>
+    <div class="ms" id="msLine"></div>
+    <p class="hint" id="hint">Tap, click, or press Space the instant the falcon would strike the hare.</p>
+  </div>
+  <button class="again" id="again" type="button">Again</button>
+  <a class="vault" href="../">الخزانة</a>
+  <script>
+(function () {
+  "use strict";
+  var canvas = document.getElementById("c");
+  var ctx = canvas.getContext("2d");
+  var roundLbl = document.getElementById("roundLbl");
+  var bestLbl = document.getElementById("bestLbl");
+  var gradeEl = document.getElementById("grade");
+  var msLine = document.getElementById("msLine");
+  var hintEl = document.getElementById("hint");
+  var againBtn = document.getElementById("again");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var W = 390, H = 700, dpr = 1;
+  var groundY = 0, hareX = 0, hareY = 0;
+  var state = "glide";
+  var round = 0, totalRounds = 8;
+  var bestAbs = null;
+  var results = [];
+  var freeze = 0;
+  var flash = 0;
+  var dust = [];
+  var clouds = [];
+  var tGlide = 0;
+  var falcon = { x: 0, y: 0, vx: 0, vy: 0, a: 0, rot: 0, stretch: 1 };
+  var dive = { t: 0, strikeT: 0, startX: 0, startY: 0, ax: 0, ay: 0, vx0: 0, vy0: 0, hitY: 0, judged: false };
+  var hare = { ear: 0, crouch: 0, alive: true };
+  var wind = 0;
+  var audio = null;
+  var last = 0;
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = Math.floor(W * dpr);
+    canvas.height = Math.floor(H * dpr);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    groundY = H * 0.82;
+    hareX = W * 0.52;
+    hareY = groundY - 8;
+    if (state === "glide") {
+      falcon.x = W * 0.45;
+      falcon.y = H * 0.18;
+    }
+  }
+
+  function seedClouds() {
+    clouds = [];
+    for (var i = 0; i < 6; i++) {
+      clouds.push({
+        x: Math.random() * W,
+        y: 40 + Math.random() * H * 0.35,
+        s: 40 + Math.random() * 70,
+        v: 6 + Math.random() * 12
+      });
+    }
+  }
+
+  function unlockAudio() {
+    if (audio) {
+      if (audio.ctx.state === "suspended") audio.ctx.resume();
+      return;
+    }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    var ctxA = new AC();
+    var master = ctxA.createGain();
+    master.gain.value = 0.28;
+    master.connect(ctxA.destination);
+    audio = { ctx: ctxA, master: master };
+  }
+
+  function blip(freq, dur, type, vol, slide) {
+    if (!audio) return;
+    var t = audio.ctx.currentTime;
+    var o = audio.ctx.createOscillator();
+    var g = audio.ctx.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g);
+    g.connect(audio.master);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  }
+
+  function whoosh() {
+    if (!audio) return;
+    var t = audio.ctx.currentTime;
+    var len = audio.ctx.sampleRate * 0.45;
+    var buf = audio.ctx.createBuffer(1, len, audio.ctx.sampleRate);
+    var d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    var src = audio.ctx.createBufferSource();
+    src.buffer = buf;
+    var f = audio.ctx.createBiquadFilter();
+    f.type = "bandpass";
+    f.frequency.setValueAtTime(400, t);
+    f.frequency.exponentialRampToValueAtTime(1800, t + 0.35);
+    var g = audio.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.22, t + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+    src.connect(f);
+    f.connect(g);
+    g.connect(audio.master);
+    src.start(t);
+  }
+
+  function thud() {
+    blip(90, 0.18, "sine", 0.35, 40);
+    blip(180, 0.1, "triangle", 0.12);
+  }
+
+  function spawnDust(x, y, n, power) {
+    var count = reduce ? Math.min(6, n) : n;
+    for (var i = 0; i < count; i++) {
+      var ang = Math.PI + (Math.random() - 0.5) * 1.6;
+      var sp = power * (0.4 + Math.random());
+      dust.push({
+        x: x + (Math.random() - 0.5) * 16,
+        y: y,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp * 0.4 - Math.random() * 40,
+        life: 0.35 + Math.random() * 0.45,
+        age: 0,
+        r: 2 + Math.random() * 4
+      });
+    }
+  }
+
+  function startDive() {
+    round += 1;
+    state = "dive";
+    hare.alive = true;
+    hare.crouch = 0;
+    dive.judged = false;
+    dive.t = 0;
+    var strikeT = 1.05 + Math.random() * 0.95;
+    dive.strikeT = strikeT;
+    dive.startX = W * (0.18 + Math.random() * 0.28);
+    dive.startY = H * (0.06 + Math.random() * 0.08);
+    dive.hitY = hareY - 10;
+    var Hdrop = dive.hitY - dive.startY;
+    dive.ay = (2 * Hdrop) / (strikeT * strikeT);
+    dive.ax = 2 * (hareX - 8 - dive.startX) / (strikeT * strikeT);
+    dive.vx0 = (hareX - 8 - dive.startX) / strikeT * 0.15;
+    dive.vy0 = 30 + Math.random() * 40;
+    falcon.x = dive.startX;
+    falcon.y = dive.startY;
+    falcon.vx = dive.vx0;
+    falcon.vy = dive.vy0;
+    falcon.stretch = 1.15;
+    falcon.rot = 1.15;
+    freeze = 0;
+    flash = 0;
+    roundLbl.textContent = "Round " + round + " / " + totalRounds;
+    gradeEl.textContent = "";
+    msLine.textContent = "";
+    hintEl.textContent = "Wait for the stoop.";
+    whoosh();
+  }
+
+  function gradeOf(errMs) {
+    var a = Math.abs(errMs);
+    if (a <= 28) return { name: "Perfect", rank: 3 };
+    if (a <= 78) return { name: "Strike", rank: 2 };
+    if (a <= 155) return { name: "Close", rank: 1 };
+    return { name: "Miss", rank: 0 };
+  }
+
+  function judge(tapT) {
+    if (dive.judged) return;
+    dive.judged = true;
+    var err = (tapT - dive.strikeT) * 1000;
+    var g = gradeOf(err);
+    results.push({ err: err, grade: g.name });
+    var abs = Math.abs(err);
+    if (bestAbs === null || abs < bestAbs) bestAbs = abs;
+    bestLbl.textContent = "Best  " + Math.round(bestAbs) + " ms";
+    gradeEl.textContent = g.name;
+    var sign = err < 0 ? "early" : "late";
+    msLine.textContent = Math.round(abs) + " ms " + sign;
+    hintEl.textContent = "";
+    if (g.rank >= 2) {
+      if (!reduce) freeze = 0.09;
+      flash = 0.18;
+      hare.crouch = 1;
+      spawnDust(hareX, groundY - 2, 22, 140);
+      thud();
+      blip(g.rank === 3 ? 880 : 620, 0.12, "sine", 0.18);
+    } else if (g.rank === 1) {
+      spawnDust(hareX, groundY - 2, 10, 80);
+      blip(320, 0.1, "triangle", 0.12);
+      hare.crouch = 0.5;
+    } else {
+      hare.alive = err > 40;
+      spawnDust(hareX + 20, groundY, 8, 60);
+      blip(140, 0.16, "sawtooth", 0.08, 70);
+    }
+    state = "result";
+    dive.resultWait = g.rank >= 2 ? 0.95 : 0.75;
+  }
+
+  function finishSet() {
+    state = "over";
+    roundLbl.textContent = "Set complete";
+    var strikes = results.filter(function (r) { return r.grade === "Perfect" || r.grade === "Strike"; }).length;
+    gradeEl.textContent = strikes + " strikes";
+    msLine.textContent = bestAbs === null ? "" : "Best timing  " + Math.round(bestAbs) + " ms";
+    hintEl.textContent = "Eight stoops. The sky keeps the score in milliseconds.";
+    againBtn.style.display = "block";
+  }
+
+  function resetSet() {
+    round = 0;
+    results = [];
+    bestAbs = null;
+    bestLbl.textContent = "";
+    againBtn.style.display = "none";
+    state = "glide";
+    tGlide = 0;
+    falcon.x = W * 0.45;
+    falcon.y = H * 0.18;
+    hintEl.textContent = "Tap, click, or press Space the instant the falcon would strike the hare.";
+    gradeEl.textContent = "";
+    msLine.textContent = "";
+    roundLbl.textContent = "Circle — tap to begin";
+  }
+
+  function onStrikeInput() {
+    unlockAudio();
+    if (state === "glide" || state === "over") {
+      if (state === "over") resetSet();
+      startDive();
+      return;
+    }
+    if (state === "dive" && !dive.judged) {
+      judge(dive.t);
+    }
+  }
+
+  canvas.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    onStrikeInput();
+  });
+  window.addEventListener("keydown", function (e) {
+    if (e.code === "Space") {
+      e.preventDefault();
+      onStrikeInput();
+    }
+  });
+  againBtn.addEventListener("click", function () {
+    unlockAudio();
+    resetSet();
+    startDive();
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && audio && audio.ctx.state === "suspended") audio.ctx.resume();
+  });
+
+  function update(dt) {
+    wind += dt;
+    tGlide += dt;
+    hare.ear += dt * 3;
+    if (hare.crouch > 0) hare.crouch = Math.max(0, hare.crouch - dt * 2.2);
+    if (flash > 0) flash = Math.max(0, flash - dt);
+    for (var i = clouds.length - 1; i >= 0; i--) {
+      clouds[i].x += clouds[i].v * dt;
+      if (clouds[i].x - clouds[i].s > W) clouds[i].x = -clouds[i].s * 1.4;
+    }
+    for (var d = dust.length - 1; d >= 0; d--) {
+      var p = dust[d];
+      p.age += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 180 * dt;
+      p.vx *= (1 - 1.6 * dt);
+      if (p.age >= p.life) dust.splice(d, 1);
+    }
+
+    if (freeze > 0) {
+      freeze -= dt;
+      return;
+    }
+
+    if (state === "glide") {
+      falcon.x = W * 0.42 + Math.sin(tGlide * 0.7) * W * 0.22;
+      falcon.y = H * 0.16 + Math.sin(tGlide * 1.1) * 18;
+      falcon.rot = Math.sin(tGlide * 0.7) * 0.25;
+      falcon.stretch = 1;
+      falcon.vx = Math.cos(tGlide * 0.7) * 80;
+    }
+
+    if (state === "dive") {
+      dive.t += dt;
+      falcon.vx += dive.ax * dt;
+      falcon.vy += dive.ay * dt;
+      falcon.x += falcon.vx * dt;
+      falcon.y += falcon.vy * dt;
+      var spd = Math.hypot(falcon.vx, falcon.vy);
+      falcon.rot = Math.atan2(falcon.vy, falcon.vx) - Math.PI / 2;
+      falcon.stretch = reduce ? 1.1 : 1 + Math.min(0.55, spd / 900);
+      if (!dive.judged && falcon.y > dive.hitY + 36) {
+        judge(dive.t);
+      }
+    }
+
+    if (state === "result") {
+      falcon.x += falcon.vx * dt * 0.35;
+      falcon.y += falcon.vy * dt * 0.35;
+      falcon.vy += dive.ay * dt * 0.2;
+      dive.resultWait -= dt;
+      if (dive.resultWait <= 0) {
+        if (round >= totalRounds) finishSet();
+        else startDive();
+      }
+    }
+  }
+
+  function sky() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#d8e8f4");
+    g.addColorStop(0.55, "#c5d8e8");
+    g.addColorStop(0.78, "#b4c9d8");
+    g.addColorStop(1, "#9eb0a8");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    var hg = ctx.createLinearGradient(0, groundY - 90, 0, groundY);
+    hg.addColorStop(0, "rgba(180,200,210,0)");
+    hg.addColorStop(1, "rgba(170,190,150,0.35)");
+    ctx.fillStyle = hg;
+    ctx.fillRect(0, groundY - 90, W, 90);
+  }
+
+  function drawClouds() {
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    clouds.forEach(function (c) {
+      ctx.beginPath();
+      ctx.ellipse(c.x, c.y, c.s, c.s * 0.38, 0, 0, Math.PI * 2);
+      ctx.ellipse(c.x + c.s * 0.45, c.y + 4, c.s * 0.7, c.s * 0.28, 0, 0, Math.PI * 2);
+      ctx.ellipse(c.x - c.s * 0.4, c.y + 6, c.s * 0.55, c.s * 0.24, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  function drawCliff() {
+    ctx.beginPath();
+    ctx.moveTo(0, groundY + 40);
+    ctx.lineTo(0, groundY - H * 0.08);
+    ctx.quadraticCurveTo(W * 0.08, groundY - H * 0.16, W * 0.16, groundY - 20);
+    ctx.lineTo(W * 0.22, groundY);
+    ctx.lineTo(W, groundY + 8);
+    ctx.lineTo(W, H);
+    ctx.lineTo(0, H);
+    ctx.closePath();
+    var rg = ctx.createLinearGradient(0, groundY - 80, 0, H);
+    rg.addColorStop(0, "#6a5a4a");
+    rg.addColorStop(0.35, "#5a4a3c");
+    rg.addColorStop(1, "#3a3028");
+    ctx.fillStyle = rg;
+    ctx.fill();
+    ctx.fillStyle = "#4a3e32";
+    ctx.beginPath();
+    ctx.moveTo(0, groundY + 8);
+    ctx.lineTo(W * 0.3, groundY + 18);
+    ctx.lineTo(W * 0.55, groundY + 4);
+    ctx.lineTo(W, groundY + 22);
+    ctx.lineTo(W, H);
+    ctx.lineTo(0, H);
+    ctx.fill();
+    ctx.fillStyle = "#c4a05a";
+    ctx.globalAlpha = 0.35;
+    ctx.fillRect(0, groundY - 2, W, 3);
+    ctx.globalAlpha = 1;
+  }
+
+  function drawHare() {
+    var x = hareX;
+    var y = hareY + hare.crouch * 6;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillStyle = "#5c4a3c";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 14, 7, -0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(12, -4, 7, 5.5, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    var flap = Math.sin(hare.ear) * 0.15;
+    ctx.beginPath();
+    ctx.ellipse(10, -16, 2.4, 9, -0.25 + flap, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(15, -15, 2.2, 8.5, 0.1 + flap, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#c4a05a";
+    ctx.beginPath();
+    ctx.arc(14.5, -5, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawFalcon() {
+    ctx.save();
+    ctx.translate(falcon.x, falcon.y);
+    ctx.rotate(falcon.rot);
+    ctx.scale(1 / falcon.stretch, falcon.stretch);
+    ctx.fillStyle = "#141820";
+    ctx.beginPath();
+    ctx.moveTo(0, -28);
+    ctx.quadraticCurveTo(10, -8, 7, 10);
+    ctx.lineTo(0, 26);
+    ctx.lineTo(-7, 10);
+    ctx.quadraticCurveTo(-10, -8, 0, -28);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -4);
+    ctx.lineTo(32, 8);
+    ctx.lineTo(8, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -4);
+    ctx.lineTo(-32, 8);
+    ctx.lineTo(-8, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#c4a05a";
+    ctx.beginPath();
+    ctx.moveTo(0, -28);
+    ctx.lineTo(3, -22);
+    ctx.lineTo(-1, -22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-3, 24);
+    ctx.lineTo(0, 32);
+    ctx.lineTo(3, 24);
+    ctx.fill();
+    ctx.restore();
+
+    var shadowScale = Math.max(0.15, Math.min(1, falcon.y / (groundY - 20)));
+    ctx.save();
+    ctx.globalAlpha = 0.18 * shadowScale;
+    ctx.fillStyle = "#102030";
+    ctx.beginPath();
+    ctx.ellipse(falcon.x, groundY + 6, 18 * shadowScale + 6, 5 * shadowScale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawDust() {
+    dust.forEach(function (p) {
+      var a = 1 - p.age / p.life;
+      ctx.fillStyle = "rgba(90,74,60," + (a * 0.55) + ")";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * a, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  function draw() {
+    sky();
+    drawClouds();
+    drawCliff();
+    drawHare();
+    drawDust();
+    drawFalcon();
+    if (flash > 0) {
+      ctx.fillStyle = "rgba(255,248,230," + (flash * 0.35) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function loop(now) {
+    if (!last) last = now;
+    var dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.1) dt = 0.1;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener("resize", function () {
+    resize();
+    seedClouds();
+  });
+  resize();
+  seedClouds();
+  falcon.x = W * 0.45;
+  falcon.y = H * 0.18;
+  requestAnimationFrame(loop);
+})();
+  </script>
+</body>
+</html>

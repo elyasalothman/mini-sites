@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sundial — مزولة</title>
+  <meta name="description" content="A working horizontal sundial. Set latitude and date; the gnomon shadow falls on computed hour lines." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Noto+Naskh+Arabic:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --lime: #efe6d4;
+      --lime-dark: #e2d4b8;
+      --shadow: #2c2418;
+      --brass: #b08a3e;
+      --brass-lite: #d4b36a;
+      --ink: #2c2418;
+      --sky: #c9d6c8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Libre Baskerville", "Noto Naskh Arabic", Georgia, serif;
+      background:
+        radial-gradient(1200px 700px at 50% -10%, #f6efe0, transparent 55%),
+        linear-gradient(180deg, #e8dcc4 0%, var(--lime) 40%, #d9cbb0 100%);
+      color: var(--ink);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+    .home {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 20;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      color: var(--ink);
+      text-decoration: none;
+      opacity: 0.4;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 10px;
+    }
+    .home:hover, .home:focus-visible { opacity: 1; }
+    header {
+      text-align: center;
+      padding: 52px 20px 8px;
+    }
+    header .kicker {
+      font-size: 0.7rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      opacity: 0.55;
+    }
+    h1 {
+      font-family: "Noto Naskh Arabic", "Libre Baskerville", serif;
+      font-size: clamp(2rem, 7vw, 3.4rem);
+      font-weight: 700;
+      margin-top: 8px;
+      line-height: 1.1;
+    }
+    header .en {
+      font-style: italic;
+      font-size: 1.05rem;
+      opacity: 0.7;
+      margin-top: 4px;
+    }
+    .stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 16px 12px;
+      min-height: 280px;
+    }
+    canvas {
+      display: block;
+      width: min(92vw, 640px);
+      height: min(92vw, 640px);
+      max-height: 62dvh;
+      touch-action: none;
+    }
+    .plaque {
+      margin: 0 auto 20px;
+      width: min(92vw, 560px);
+      background: linear-gradient(180deg, #c4a056, #8a6a32 55%, #7a5a28);
+      color: #1a140c;
+      border-radius: 4px 4px 10px 10px;
+      padding: 14px 16px 16px;
+      box-shadow:
+        0 1px 0 #e8d090 inset,
+        0 10px 28px rgba(44, 36, 24, 0.28);
+    }
+    .plaque h2 {
+      font-size: 0.68rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 10px;
+      opacity: 0.75;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 14px;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.72rem;
+    }
+    label span.ar {
+      font-family: "Noto Naskh Arabic", serif;
+      opacity: 0.8;
+    }
+    input[type="number"], input[type="date"] {
+      min-height: 44px;
+      border: 0;
+      border-radius: 2px;
+      padding: 0 10px;
+      font: inherit;
+      background: #efe6d4;
+      color: var(--ink);
+    }
+    .time-row {
+      grid-column: 1 / -1;
+      margin-top: 4px;
+    }
+    input[type="range"] {
+      width: 100%;
+      height: 44px;
+      accent-color: #2c2418;
+    }
+    .readout {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-top: 6px;
+      font-size: 0.85rem;
+    }
+    .readout strong { font-size: 1.05rem; }
+    button.now {
+      min-height: 44px;
+      min-width: 44px;
+      padding: 0 14px;
+      border: 0;
+      background: #2c2418;
+      color: #efe6d4;
+      font: inherit;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+    }
+    button.now:hover { background: #3e3426; }
+    .hint {
+      text-align: center;
+      font-size: 0.68rem;
+      opacity: 0.65;
+      margin-top: 8px;
+      font-style: italic;
+    }
+    @media (max-width: 520px) {
+      .row { grid-template-columns: 1fr; }
+      header { padding-top: 48px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="home" href="../">الخزانة</a>
+  <header>
+    <p class="kicker">Horizontal plate &middot; polar gnomon</p>
+    <h1>مزولة</h1>
+    <p class="en">Sundial</p>
+  </header>
+  <div class="stage"><canvas id="c" aria-label="Horizontal sundial plate"></canvas></div>
+  <form class="plaque" onsubmit="return false">
+    <h2>Observatory plaque</h2>
+    <div class="row">
+      <label>
+        Latitude <span class="ar">خط العرض</span>
+        <input id="lat" type="number" min="-66" max="66" step="0.1" value="24.7" />
+      </label>
+      <label>
+        Date <span class="ar">التاريخ</span>
+        <input id="date" type="date" />
+      </label>
+      <div class="time-row">
+        <label>
+          Solar time <span class="ar">الوقت الشمسي</span>
+          <input id="time" type="range" min="5" max="19" step="0.01" />
+        </label>
+        <div class="readout">
+          <span id="clock">12:00</span>
+          <strong id="place">Riyadh 24.7°N</strong>
+          <button type="button" class="now" id="now">Now</button>
+        </div>
+      </div>
+    </div>
+    <p class="hint">Hour-line angle = atan(sin φ · tan(15° · (h − 12))). Shadow follows the style.</p>
+  </form>
+  <script>
+    (function () {
+      const canvas = document.getElementById("c");
+      const latEl = document.getElementById("lat");
+      const dateEl = document.getElementById("date");
+      const timeEl = document.getElementById("time");
+      const clockEl = document.getElementById("clock");
+      const placeEl = document.getElementById("place");
+      const nowBtn = document.getElementById("now");
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      let live = true;
+      let stone = null;
+
+      const today = new Date();
+      dateEl.value = today.toISOString().slice(0, 10);
+      timeEl.value = String(today.getHours() + today.getMinutes() / 60);
+
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function fmtHour(h) {
+        const wrap = ((h % 24) + 24) % 24;
+        const hh = Math.floor(wrap);
+        const mm = Math.floor((wrap - hh) * 60);
+        return pad(hh) + ":" + pad(mm);
+      }
+      function dayOfYear(d) {
+        const s = Date.UTC(d.getFullYear(), 0, 0);
+        return (d.getTime() - s) / 86400000;
+      }
+      function declination(doy) {
+        return 23.44 * Math.sin((2 * Math.PI / 365) * (doy - 81));
+      }
+      function hourLineAngle(latDeg, hour) {
+        const phi = (latDeg * Math.PI) / 180;
+        const dh = hour - 12;
+        if (Math.abs(Math.abs(dh) - 6) < 1e-4) return Math.sign(dh) * Math.PI / 2;
+        if (Math.abs(dh) > 6) {
+          const inner = Math.tan((15 * Math.PI / 180) * Math.max(-5.99, Math.min(5.99, dh)));
+          return Math.atan(Math.sin(phi) * inner);
+        }
+        return Math.atan(Math.sin(phi) * Math.tan(dh * 15 * Math.PI / 180));
+      }
+      function solarPos(latDeg, declDeg, hour) {
+        const phi = (latDeg * Math.PI) / 180;
+        const d = (declDeg * Math.PI) / 180;
+        const H = ((hour - 12) * 15 * Math.PI) / 180;
+        const sinAlt = Math.sin(phi) * Math.sin(d) + Math.cos(phi) * Math.cos(d) * Math.cos(H);
+        const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+        const cosAlt = Math.max(1e-6, Math.cos(alt));
+        const sinAz = (-Math.cos(d) * Math.sin(H)) / cosAlt;
+        const cosAz = (Math.sin(d) - Math.sin(alt) * Math.sin(phi)) / (cosAlt * Math.max(1e-6, Math.cos(phi)));
+        const az = Math.atan2(sinAz, cosAz);
+        return { alt: alt, az: az };
+      }
+      function hash(ix, iy) {
+        let n = (ix * 374761393 + iy * 668265263) | 0;
+        n = (n ^ (n >> 13)) * 1274126177;
+        return ((n ^ (n >> 16)) >>> 0) / 4294967295;
+      }
+      function makeStone(size) {
+        const c = document.createElement("canvas");
+        c.width = size;
+        c.height = size;
+        const g = c.getContext("2d");
+        const img = g.createImageData(size, size);
+        const d = img.data;
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            const n =
+              hash(x, y) * 0.45 +
+              hash(x >> 2, y >> 2) * 0.3 +
+              hash(x >> 4, y >> 4) * 0.25;
+            const v = 214 + n * 28;
+            const i = (y * size + x) * 4;
+            d[i] = v;
+            d[i + 1] = v - 14;
+            d[i + 2] = v - 36;
+            d[i + 3] = 255;
+          }
+        }
+        g.putImageData(img, 0, 0);
+        return c;
+      }
+
+      function fit() {
+        const css = Math.min(canvas.clientWidth, canvas.clientHeight, 640);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.floor(css * dpr));
+        canvas.height = Math.max(1, Math.floor(css * dpr));
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        stone = makeStone(Math.floor(css));
+        return ctx;
+      }
+      let ctx = fit();
+      window.addEventListener("resize", function () { ctx = fit(); });
+
+      function placeName(lat) {
+        const hemi = lat >= 0 ? "N" : "S";
+        const a = Math.abs(lat).toFixed(1);
+        if (Math.abs(lat - 24.7) < 0.15) return "Riyadh " + a + "°" + hemi;
+        if (Math.abs(lat - 21.4) < 0.2) return "Mecca " + a + "°" + hemi;
+        if (Math.abs(lat - 25.3) < 0.2) return "Doha " + a + "°" + hemi;
+        return a + "°" + hemi;
+      }
+
+      function draw() {
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        const cx = w / 2;
+        const cy = h * 0.54;
+        const R = Math.min(w, h) * 0.38;
+        const lat = Number(latEl.value) || 24.7;
+        const hour = Number(timeEl.value);
+        const date = dateEl.value ? new Date(dateEl.value + "T12:00:00") : new Date();
+        const decl = declination(dayOfYear(date));
+        const sun = solarPos(lat, decl, hour);
+        const northUp = lat >= 0;
+
+        ctx.clearRect(0, 0, w, h);
+
+        const sky = ctx.createLinearGradient(0, 0, 0, h * 0.55);
+        const dayAmt = Math.max(0, Math.min(1, (sun.alt + 0.12) / 0.7));
+        sky.addColorStop(0, "rgba(" + Math.round(90 + 80 * dayAmt) + "," + Math.round(130 + 50 * dayAmt) + "," + Math.round(160 + 20 * dayAmt) + ",0.55)");
+        sky.addColorStop(1, "rgba(239,230,212,0)");
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, w, h * 0.6);
+
+        const sunR = R * 1.55;
+        const azDraw = northUp ? sun.az : sun.az + Math.PI;
+        const sx = cx + Math.sin(azDraw) * sunR * 0.72 * Math.cos(sun.alt);
+        const sy = cy - R * 0.95 - Math.max(0, Math.sin(sun.alt)) * R * 0.85;
+        if (sun.alt > -0.08) {
+          const glow = ctx.createRadialGradient(sx, sy, 2, sx, sy, 48);
+          glow.addColorStop(0, "#ffe9a8");
+          glow.addColorStop(0.18, "#e0b04a");
+          glow.addColorStop(1, "rgba(224,176,74,0)");
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(sx, sy, 48, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#f0d080";
+          ctx.beginPath();
+          ctx.arc(sx, sy, 11, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.save();
+        ctx.translate(cx + 10, cy + 12);
+        ctx.beginPath();
+        ctx.arc(0, 0, R, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(44,36,24,0.22)";
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.clip();
+        if (stone) ctx.drawImage(stone, cx - R, cy - R, R * 2, R * 2);
+        ctx.fillStyle = "rgba(239,230,212,0.18)";
+        ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.strokeStyle = "#8a7a58";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, R - 10, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(44,36,24,0.18)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(44,36,24,0.38)";
+        ctx.fillStyle = "#2c2418";
+        ctx.lineWidth = 1;
+        ctx.font = "11px Libre Baskerville, serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        for (let hr = 5; hr <= 19; hr += 0.5) {
+          const ang = hourLineAngle(lat, hr);
+          const signed = northUp ? ang : -ang;
+          const len = (hr % 1 === 0) ? R - 14 : R * 0.78;
+          const x2 = cx + Math.sin(signed) * len;
+          const y2 = cy - Math.cos(signed) * len;
+          ctx.globalAlpha = hr % 1 === 0 ? 0.7 : 0.28;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          if (hr % 1 === 0 && hr >= 6 && hr <= 18) {
+            const label = hr === 12 ? "XII" : String(((hr - 1) % 12) + 1);
+            const lx = cx + Math.sin(signed) * (R - 22);
+            const ly = cy - Math.cos(signed) * (R - 22);
+            ctx.fillText(label, lx, ly);
+          }
+        }
+
+        ctx.font = "10px Libre Baskerville, serif";
+        ctx.fillStyle = "rgba(44,36,24,0.55)";
+        ctx.fillText(northUp ? "N" : "S", cx, cy - R + 36);
+        ctx.fillText(northUp ? "S" : "N", cx, cy + R - 36);
+
+        const base = R * 0.42;
+        const gH = Math.abs(Math.tan((lat * Math.PI) / 180)) * base;
+        const gnomon = [
+          { x: 0, y: -base * 0.15, z: 0 },
+          { x: 0, y: base * 0.85, z: 0 },
+          { x: 0, y: base * 0.85, z: Math.max(18, Math.min(R * 0.55, gH)) }
+        ];
+        const k = 0.42;
+        function proj(p) {
+          return {
+            x: cx + p.x + p.z * 0.18,
+            y: cy - (northUp ? p.y : -p.y) - p.z * k
+          };
+        }
+
+        if (sun.alt > 0.02) {
+          const Sx = Math.cos(sun.alt) * Math.sin(sun.az);
+          const Sy = Math.cos(sun.alt) * Math.cos(sun.az);
+          const Sz = Math.sin(sun.alt);
+          function shadowPt(p) {
+            const t = p.z / Sz;
+            const wx = p.x - Sx * t;
+            const wy = p.y - Sy * t;
+            return { x: cx + wx, y: cy - (northUp ? wy : -wy) };
+          }
+          const sh = gnomon.map(shadowPt);
+          ctx.beginPath();
+          ctx.moveTo(sh[0].x, sh[0].y);
+          ctx.lineTo(sh[1].x, sh[1].y);
+          ctx.lineTo(sh[2].x, sh[2].y);
+          ctx.closePath();
+          ctx.fillStyle = "rgba(44,36,24,0.42)";
+          ctx.fill();
+        }
+
+        const a = proj(gnomon[0]);
+        const b = proj(gnomon[1]);
+        const c = proj(gnomon[2]);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.lineTo(c.x, c.y);
+        ctx.closePath();
+        const brass = ctx.createLinearGradient(a.x, a.y, c.x, c.y);
+        brass.addColorStop(0, "#d4b36a");
+        brass.addColorStop(0.5, "#b08a3e");
+        brass.addColorStop(1, "#6a4a1c");
+        ctx.fillStyle = brass;
+        ctx.fill();
+        ctx.strokeStyle = "#5a3e14";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.fillStyle = "#2c2418";
+        ctx.fill();
+
+        clockEl.textContent = fmtHour(hour);
+        placeEl.textContent = placeName(lat);
+      }
+
+      latEl.addEventListener("input", draw);
+      dateEl.addEventListener("input", draw);
+      timeEl.addEventListener("input", function () {
+        live = false;
+        draw();
+      });
+      nowBtn.addEventListener("click", function () {
+        live = true;
+        const n = new Date();
+        dateEl.value = n.toISOString().slice(0, 10);
+        timeEl.value = String(n.getHours() + n.getMinutes() / 60);
+        draw();
+      });
+
+      let last = performance.now();
+      function loop(now) {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        if (live) {
+          const n = new Date();
+          const h = n.getHours() + n.getMinutes() / 60 + n.getSeconds() / 3600;
+          if (reduce) timeEl.value = String(h);
+          else timeEl.value = String(h);
+        }
+        draw();
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    })();
+  </script>
+</body>
+</html>
