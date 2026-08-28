@@ -2,6 +2,10 @@
 
 اثنان وثلاثون موقعًا صغيرًا مستقلًا — كل مجلد موقع كامل (HTML/CSS/JS) يعمل لوحده.
 
+**العنوان الرسمي فقط:** [https://khazana.alhajda.com](https://khazana.alhajda.com)
+
+لا تستخدم `workers.dev` ولا `luma.alhajda.com` ولا `github.io` كعنوان رسمي.
+
 ## التشغيل محليًا
 
 افتح `index.html` في المتصفح، أو من المجلد:
@@ -10,12 +14,30 @@
 python3 -m http.server 8080
 ```
 
+أو عبر العامل:
+
+```bash
+npm install
+npx wrangler dev
+```
+
 ثم زر كل موقع على `/اسم-الموقع/`.
 
 ## النشر
 
-- انسخ أي مجلد فرعي (مثل `mashrabiya/`) إلى مسار فرعي على الدومين: `domain.com/mashrabiya`
-- أو فعّل GitHub Pages على هذا المستودع (Settings → Pages → Deploy from branch `main`).
+هذا المستودع يُنشر كعامل Cloudflare اسمه `khazana`. **لا تفعّل GitHub Pages** على هذا المستودع: نطاق `github.io` المخصص هو `luma.alhajda.com` (لمعة)، وتفعيله هنا يخطف لمعة.
+
+```bash
+npx wrangler deploy
+```
+
+بعد أول نشر، اربط DNS:
+
+- `khazana.alhajda.com` → هذا العامل (`khazana`)
+- إن كانت المنطقة على Cloudflare، يضيف `wrangler deploy` النطاق المخصص من `wrangler.jsonc`
+- إن لم يُنشأ السجل تلقائيًا: CNAME (أو سجل العامل) لـ `khazana.alhajda.com` يشير إلى العامل `khazana`
+
+النجاح: `https://khazana.alhajda.com` يعرض الدليل، و`https://khazana.alhajda.com/mashrabiya/` يفتح المشربية.
 
 ## المواقع
 
