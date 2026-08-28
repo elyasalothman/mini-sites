@@ -1,0 +1,12 @@
+{
+  "name": "khazana",
+  "private": true,
+  "description": "الخزانة — 32 independent mini-sites at https://khazana.alhajda.com",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.37.1"
+  }
+}

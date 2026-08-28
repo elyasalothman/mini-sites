@@ -1,0 +1,14 @@
+# Worker tooling — not part of the public catalog
+**/node_modules
+**/.git
+**/.wrangler
+.gitignore
+.assetsignore
+package.json
+package-lock.json
+wrangler.jsonc
+wrangler.toml
+src
+.dev.vars
+*.md
+.github

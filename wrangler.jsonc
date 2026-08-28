@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "khazana",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-28",
+  // Official origin is https://khazana.alhajda.com only.
+  // workers.dev may exist as a Cloudflare preview; do not treat it as official.
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    {
+      "pattern": "khazana.alhajda.com",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}
